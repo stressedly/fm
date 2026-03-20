@@ -2135,6 +2135,132 @@
             opacity: 0.7;
         }
 
+        /* === INLINE TAG INPUT WITH AUTOCOMPLETE === */
+        .inline-tag-input-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .inline-tag-input {
+            width: 120px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(138, 43, 226, 0.5);
+            background: rgba(20, 20, 30, 0.9);
+            color: #fff;
+            font-size: 0.75em;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .inline-tag-input:focus {
+            border-color: #bb86fc;
+            box-shadow: 0 0 8px rgba(138, 43, 226, 0.3);
+        }
+        .inline-tag-ac {
+            display: none;
+            position: fixed;
+            min-width: 200px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: rgba(25, 22, 40, 0.98);
+            border: 1px solid rgba(138, 43, 226, 0.45);
+            border-radius: 10px;
+            z-index: 5000;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .inline-tag-ac.active { display: block; }
+        .inline-tag-ac::-webkit-scrollbar { width: 4px; }
+        .inline-tag-ac::-webkit-scrollbar-thumb { background: rgba(138, 43, 226, 0.4); border-radius: 4px; }
+        .inline-tag-ac-item {
+            padding: 7px 12px;
+            color: #e0d4f5;
+            font-size: 0.85em;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.15s;
+        }
+        .inline-tag-ac-item:hover, .inline-tag-ac-item.selected {
+            background: rgba(138, 43, 226, 0.25);
+        }
+        .inline-tag-ac-item .ac-count {
+            color: #b19cd9;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        .inline-tag-ac-item .ac-new-badge {
+            background: rgba(76, 175, 80, 0.25);
+            color: #81c784;
+            padding: 1px 6px;
+            border-radius: 6px;
+            font-size: 0.75em;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        /* Preview tag editing */
+        .preview-tag-editable {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            background: rgba(138, 43, 226, 0.25);
+            border: 1px solid rgba(187, 134, 252, 0.3);
+            color: #d4b5ff;
+            font-size: 0.78em;
+            transition: all 0.2s;
+        }
+        .preview-tag-editable:hover {
+            background: rgba(138, 43, 226, 0.35);
+        }
+        .preview-tag-editable .preview-tag-remove {
+            background: none;
+            border: none;
+            color: #ff6b9d;
+            cursor: pointer;
+            padding: 0 2px;
+            font-size: 1.1em;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: none;
+        }
+        .preview-tag-editable:hover .preview-tag-remove {
+            opacity: 0.7;
+        }
+        .preview-tag-editable .preview-tag-remove:hover {
+            opacity: 1;
+        }
+        .preview-tag-add-btn {
+            display: inline-flex;
+            align-items: center;
+            background: none;
+            border: 1px dashed rgba(187, 134, 252, 0.4);
+            color: #bb86fc;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.78em;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: none;
+            font-family: inherit;
+        }
+        .preview-tag-add-btn:hover {
+            border-color: #bb86fc;
+            background: rgba(138, 43, 226, 0.15);
+            transform: none;
+            box-shadow: none;
+        }
+        .filter-tag-count {
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-left: 2px;
+        }
+
         /* === TAGS PAGINATION === */
         .tags-pagination {
             grid-column: 1 / -1;
@@ -4118,9 +4244,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
         function renderTagSearchResults(query) {
             const container = document.getElementById('tagSearchResults');
-            const allTags = db.getAllTags();
+            const allTagsWithCounts = getTagsByPopularity();
             const q = query.trim().toLowerCase();
-            const filtered = q ? allTags.filter(t => t.toLowerCase().includes(q)) : allTags;
+            const filtered = q ? allTagsWithCounts.filter(t => t.tag.toLowerCase().includes(q)) : allTagsWithCounts;
 
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="tag-search-empty">${q ? 'No tags match your search' : 'No tags available'}</div>`;
@@ -4128,9 +4254,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             let html = '';
-            for (const tag of filtered) {
+            for (const { tag, count } of filtered) {
                 const isActive = activeTagFilters.has(tag);
-                html += `<button class="filter-tag-btn${isActive ? ' active' : ''}" onclick="toggleTagFilter('${tag.replace(/'/g, "\\'")}')">${tag}</button>`;
+                html += `<button class="filter-tag-btn${isActive ? ' active' : ''}" onclick="toggleTagFilter('${tag.replace(/'/g, "\\'")}')">${tag} <span class="filter-tag-count">(${count})</span></button>`;
             }
             container.innerHTML = html;
         }
@@ -4352,6 +4478,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             // Layer 5: Image preview (z-1500)
             if (previewIsOpen) {
+                if (isTypingInInput()) return;
                 if (key === 'Escape') { e.preventDefault(); closeImagePreview(); }
                 else if (key === 'ArrowLeft') { e.preventDefault(); previewPrev(); }
                 else if (key === 'ArrowRight') { e.preventDefault(); previewNext(); }
@@ -4379,6 +4506,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Layer 9: Pack detail overlay (z-1000)
             const packDetailOverlay = document.getElementById('packDetailOverlay');
             if (packDetailOverlay.classList.contains('active')) {
+                if (isTypingInInput()) return;
                 if (key === 'Escape') { e.preventDefault(); closePackDetail(); }
                 return;
             }
@@ -4559,6 +4687,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             hideAllViews();
             document.getElementById('leaderboardView').classList.remove('hidden');
             currentView = 'leaderboard';
+            leaderboardPage = 1;
             renderLeaderboard();
         }
 
@@ -4986,10 +5115,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const visible = tags.slice(0, 3);
                 const hidden = tags.slice(3);
                 const visibleHtml = visible.map(t =>
-                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}')">&times;</button></span>`
+                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}'); this.closest('.image-tag').remove()">&times;</button></span>`
                 ).join('');
                 const hiddenHtml = hidden.map(t =>
-                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}')">&times;</button></span>`
+                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}'); this.closest('.image-tag').remove()">&times;</button></span>`
                 ).join('');
                 const moreBtn = hidden.length > 0
                     ? `<span class="card-tags-hidden" id="cardHiddenTags${idx}" style="display:none;">${hiddenHtml}</span><button class="pack-tags-toggle" onclick="toggleCardTags(${idx}, this)">+${hidden.length} more</button>`
@@ -5000,7 +5129,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         <img data-image-id="${img.id}" alt="" onclick="openImagePreview(packDetailImages, ${idx})">
                         <div class="card-tags">
                             ${visibleHtml}${moreBtn}
-                            <button class="tag-add-btn" onclick="showAddTagInput(${img.id})">+ tag</button>
+                            <button class="tag-add-btn" onclick="showAddTagInput(${img.id}, this)">+ tag</button>
                         </div>
                     </div>
                 `;
@@ -5015,7 +5144,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (!img) return;
             img.tags = (img.tags || []).filter(t => t !== tag);
             await db._saveImageUpdate(img);
-            if (currentViewingPackId) viewPackDetail(currentViewingPackId);
         }
 
         async function addTagToImage(imageId, tag) {
@@ -5023,18 +5151,150 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const img = db.images.find(i => i.id === imageId);
             if (!img) return;
             if (!img.tags) img.tags = [];
+            tag = tag.trim().toLowerCase();
             if (!img.tags.includes(tag)) {
                 img.tags.push(tag);
                 await db._saveImageUpdate(img);
             }
-            if (currentViewingPackId) viewPackDetail(currentViewingPackId);
         }
 
-        async function showAddTagInput(imageId) {
-            const tag = await showPromptInput('Enter tag name');
-            if (tag && tag.trim()) {
-                addTagToImage(imageId, tag.trim().toLowerCase());
+        function showAddTagInput(imageId, btn) {
+            const container = btn.closest('.card-tags');
+            if (!container) return;
+            if (container.querySelector('.inline-tag-input-wrap')) {
+                container.querySelector('.inline-tag-input').focus();
+                return;
             }
+            btn.style.display = 'none';
+
+            const wrap = document.createElement('div');
+            wrap.className = 'inline-tag-input-wrap';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'inline-tag-input';
+            input.placeholder = 'Add tag...';
+            input.autocomplete = 'off';
+            const acEl = document.createElement('div');
+            acEl.className = 'inline-tag-ac';
+            wrap.appendChild(input);
+            document.body.appendChild(acEl);
+            container.appendChild(wrap);
+
+            let acIdx = -1;
+
+            function getImgTags() {
+                const img = db.images.find(i => i.id === imageId);
+                return img ? (img.tags || []) : [];
+            }
+
+            function positionAc() {
+                const rect = input.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                if (spaceBelow < 230) {
+                    acEl.style.top = '';
+                    acEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                } else {
+                    acEl.style.bottom = '';
+                    acEl.style.top = (rect.bottom + 4) + 'px';
+                }
+                acEl.style.left = rect.left + 'px';
+                acEl.style.minWidth = Math.max(200, rect.width) + 'px';
+            }
+
+            function renderAc() {
+                const q = input.value.trim().toLowerCase();
+                const imgTags = getImgTags();
+                const all = getTagsByPopularity();
+                const matches = (q
+                    ? all.filter(t => t.tag.toLowerCase().includes(q) && !imgTags.includes(t.tag))
+                    : all.filter(t => !imgTags.includes(t.tag))
+                ).slice(0, 8);
+
+                let html = '';
+                for (const t of matches) {
+                    html += `<div class="inline-tag-ac-item" data-tag="${t.tag.replace(/"/g, '&quot;')}">${t.tag}<span class="ac-count">${t.count}</span></div>`;
+                }
+                if (q && !all.some(t => t.tag.toLowerCase() === q) && !imgTags.includes(q)) {
+                    html += `<div class="inline-tag-ac-item" data-tag="${q.replace(/"/g, '&quot;')}">${q} <span class="ac-new-badge">new</span></div>`;
+                }
+                if (!html) {
+                    if (q) html = '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No matches</div>';
+                    else html = '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">All tags assigned</div>';
+                }
+                acEl.innerHTML = html;
+                positionAc();
+                acEl.classList.add('active');
+                acIdx = -1;
+                acEl.querySelectorAll('.inline-tag-ac-item[data-tag]').forEach(el => {
+                    el.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        pickTag(el.dataset.tag);
+                    });
+                });
+            }
+
+            function updateSel() {
+                const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                items.forEach((el, i) => el.classList.toggle('selected', i === acIdx));
+                if (items[acIdx]) items[acIdx].scrollIntoView({ block: 'nearest' });
+            }
+
+            async function pickTag(tag) {
+                tag = tag.trim().toLowerCase();
+                if (!tag) return;
+                await addTagToImage(imageId, tag);
+                const span = document.createElement('span');
+                span.className = 'image-tag';
+                span.innerHTML = `${tag}<button class="tag-remove-btn" onclick="removeTagFromImage(${imageId}, '${tag.replace(/'/g, "\\'")}'); this.closest('.image-tag').remove()">&times;</button>`;
+                container.insertBefore(span, wrap);
+                input.value = '';
+                renderAc();
+                input.focus();
+            }
+
+            input.addEventListener('input', renderAc);
+            input.addEventListener('focus', renderAc);
+            input.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+                const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    acIdx = Math.min(acIdx + 1, items.length - 1);
+                    updateSel();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    acIdx = Math.max(acIdx - 1, -1);
+                    updateSel();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (acIdx >= 0 && items[acIdx]) {
+                        pickTag(items[acIdx].dataset.tag);
+                    } else {
+                        const q = input.value.trim().toLowerCase();
+                        if (q) pickTag(q);
+                    }
+                } else if (e.key === 'Escape') {
+                    closeInline();
+                } else if (e.key === 'Tab' && items.length > 0) {
+                    e.preventDefault();
+                    pickTag(items[acIdx >= 0 ? acIdx : 0].dataset.tag);
+                }
+            });
+
+            function closeInline() {
+                acEl.classList.remove('active');
+                acEl.remove();
+                wrap.remove();
+                btn.style.display = '';
+            }
+
+            input.addEventListener('blur', () => {
+                acEl.classList.remove('active');
+                setTimeout(closeInline, 200);
+            });
+
+            input.focus();
+            renderAc();
         }
 
         function closePackDetail() {
@@ -5096,8 +5356,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             // Tags
-            const tags = (img.tags || []).slice(0, 8);
-            tagsEl.innerHTML = tags.map(t => `<span class="preview-tag">${t}</span>`).join('');
+            renderPreviewTags();
 
             // Counter
             counterEl.textContent = `${previewIndex + 1} / ${previewImages.length}`;
@@ -5109,6 +5368,165 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 <span class="preview-stat"><span class="preview-stat-value">${img.battles || 0}</span> battles</span>
                 <span class="preview-stat"><span class="preview-stat-value">${winRate}%</span> win</span>
             `;
+        }
+
+        function renderPreviewTags() {
+            const img = previewImages[previewIndex];
+            if (!img) return;
+            const tagsEl = document.getElementById('imagePreviewTags');
+            // Clean up any body-appended autocomplete from previous preview tag input
+            document.querySelectorAll('.inline-tag-ac-preview').forEach(el => el.remove());
+            const tags = img.tags || [];
+            tagsEl.innerHTML = tags.map(t =>
+                `<span class="preview-tag-editable">${t}<button class="preview-tag-remove" onclick="event.stopPropagation(); removePreviewTag('${t.replace(/'/g, "\\'")}')">&times;</button></span>`
+            ).join('') + `<button class="preview-tag-add-btn" onclick="event.stopPropagation(); showPreviewTagInput(this)">+ tag</button>`;
+        }
+
+        async function removePreviewTag(tag) {
+            const img = previewImages[previewIndex];
+            if (!img) return;
+            img.tags = (img.tags || []).filter(t => t !== tag);
+            await db._saveImageUpdate(img);
+            renderPreviewTags();
+        }
+
+        function showPreviewTagInput(btn) {
+            const tagsEl = document.getElementById('imagePreviewTags');
+            if (tagsEl.querySelector('.inline-tag-input-wrap')) {
+                tagsEl.querySelector('.inline-tag-input').focus();
+                return;
+            }
+            btn.style.display = 'none';
+
+            const wrap = document.createElement('div');
+            wrap.className = 'inline-tag-input-wrap';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'inline-tag-input';
+            input.placeholder = 'Add tag...';
+            input.autocomplete = 'off';
+            input.style.width = '140px';
+            const acEl = document.createElement('div');
+            acEl.className = 'inline-tag-ac inline-tag-ac-preview';
+            wrap.appendChild(input);
+            document.body.appendChild(acEl);
+            tagsEl.appendChild(wrap);
+
+            let acIdx = -1;
+            const img = previewImages[previewIndex];
+
+            function getImgTags() {
+                return img ? (img.tags || []) : [];
+            }
+
+            function positionAc() {
+                const rect = input.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                if (spaceBelow < 230) {
+                    acEl.style.top = '';
+                    acEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                } else {
+                    acEl.style.bottom = '';
+                    acEl.style.top = (rect.bottom + 4) + 'px';
+                }
+                acEl.style.left = rect.left + 'px';
+                acEl.style.minWidth = Math.max(200, rect.width) + 'px';
+            }
+
+            function renderAc() {
+                const q = input.value.trim().toLowerCase();
+                const imgTags = getImgTags();
+                const all = getTagsByPopularity();
+                const matches = (q
+                    ? all.filter(t => t.tag.toLowerCase().includes(q) && !imgTags.includes(t.tag))
+                    : all.filter(t => !imgTags.includes(t.tag))
+                ).slice(0, 8);
+
+                let html = '';
+                for (const t of matches) {
+                    html += `<div class="inline-tag-ac-item" data-tag="${t.tag.replace(/"/g, '&quot;')}">${t.tag}<span class="ac-count">${t.count}</span></div>`;
+                }
+                if (q && !all.some(t => t.tag.toLowerCase() === q) && !imgTags.includes(q)) {
+                    html += `<div class="inline-tag-ac-item" data-tag="${q.replace(/"/g, '&quot;')}">${q} <span class="ac-new-badge">new</span></div>`;
+                }
+                if (!html) {
+                    if (q) html = '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No matches</div>';
+                    else html = '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">All tags assigned</div>';
+                }
+                acEl.innerHTML = html;
+                positionAc();
+                acEl.classList.add('active');
+                acIdx = -1;
+                acEl.querySelectorAll('.inline-tag-ac-item[data-tag]').forEach(el => {
+                    el.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        pickTag(el.dataset.tag);
+                    });
+                });
+            }
+
+            function updateSel() {
+                const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                items.forEach((el, i) => el.classList.toggle('selected', i === acIdx));
+                if (items[acIdx]) items[acIdx].scrollIntoView({ block: 'nearest' });
+            }
+
+            async function pickTag(tag) {
+                tag = tag.trim().toLowerCase();
+                if (!tag) return;
+                await addTagToImage(img.id, tag);
+                const span = document.createElement('span');
+                span.className = 'preview-tag-editable';
+                span.innerHTML = `${tag}<button class="preview-tag-remove" onclick="event.stopPropagation(); removePreviewTag('${tag.replace(/'/g, "\\'")}')">&times;</button>`;
+                tagsEl.insertBefore(span, wrap);
+                input.value = '';
+                renderAc();
+                input.focus();
+            }
+
+            input.addEventListener('input', renderAc);
+            input.addEventListener('focus', renderAc);
+            input.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+                const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    acIdx = Math.min(acIdx + 1, items.length - 1);
+                    updateSel();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    acIdx = Math.max(acIdx - 1, -1);
+                    updateSel();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (acIdx >= 0 && items[acIdx]) {
+                        pickTag(items[acIdx].dataset.tag);
+                    } else {
+                        const q = input.value.trim().toLowerCase();
+                        if (q) pickTag(q);
+                    }
+                } else if (e.key === 'Escape') {
+                    closeInline();
+                } else if (e.key === 'Tab' && items.length > 0) {
+                    e.preventDefault();
+                    pickTag(items[acIdx >= 0 ? acIdx : 0].dataset.tag);
+                }
+            });
+
+            function closeInline() {
+                acEl.classList.remove('active');
+                acEl.remove();
+                wrap.remove();
+                btn.style.display = '';
+            }
+
+            input.addEventListener('blur', () => {
+                acEl.classList.remove('active');
+                setTimeout(closeInline, 200);
+            });
+
+            input.focus();
+            renderAc();
         }
 
         function previewNext() {
