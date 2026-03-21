@@ -2705,8 +2705,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>✨ アニメフェイスマッシュ ✨</h1>
-            <p class="subtitle">♥ Choose your favorite anime girl! ♥ <span class="jp" style="display:inline; font-size:0.85em; opacity:0.7;">あなたの好きを選んでね！</span></p>
+            <h1>アニメフェイスマッシュ</h1>
+            <p class="subtitle">Choose your favorite anime girl! <span class="jp" style="display:inline; font-size:0.85em; opacity:0.7;">あなたの好きを選んでね！</span></p>
 
             <div class="storage-info">
                 <div class="storage-bar">
@@ -2954,8 +2954,8 @@
             <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Tags <span style="font-size:0.5em; opacity:0.5;">タグ一覧</span>
-                    <button id="faceScanToggleBtn" onclick="toggleFaceScan()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">🔍 Face Scan: OFF</button>
-                    <button onclick="runFullFaceScan()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">🔄 Full Scan</button>
+                    <button id="faceScanToggleBtn" onclick="toggleFaceScan()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Face Scan: OFF</button>
+                    <button onclick="runFullFaceScan()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Full Scan</button>
                 </h2>
                 <div style="max-width:400px;margin:0 auto 20px;position:relative;">
                     <input type="text" id="tagsViewSearch" placeholder="Search tags..." autocomplete="off" style="width:100%;padding:10px 14px;border-radius:12px;border:1px solid rgba(138,43,226,0.4);background:rgba(20,20,30,0.8);color:#fff;font-size:0.95em;font-family:inherit;outline:none;box-sizing:border-box;">
@@ -4450,18 +4450,19 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         let _faceapiLibLoaded = false;
 
         // ---- IndexedDB asset helpers ----
+        function _getIDB() { return db.storage.db; }
         async function _waitForDB(maxMs = 5000) {
-            if (db.db) return;
+            if (_getIDB()) return;
             const start = Date.now();
-            while (!db.db && Date.now() - start < maxMs) {
+            while (!_getIDB() && Date.now() - start < maxMs) {
                 await new Promise(r => setTimeout(r, 100));
             }
-            if (!db.db) throw new Error('DB not ready after ' + maxMs + 'ms');
+            if (!_getIDB()) throw new Error('DB not ready after ' + maxMs + 'ms');
         }
         async function _faceAssetGet(key) {
             try {
                 await _waitForDB();
-                const tx = db.db.transaction(['faceapi_assets'], 'readonly');
+                const tx = _getIDB().transaction(['faceapi_assets'], 'readonly');
                 const req = tx.objectStore('faceapi_assets').get(key);
                 return await new Promise((resolve) => {
                     req.onsuccess = () => resolve(req.result || null);
@@ -4474,7 +4475,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
         async function _faceAssetPut(key, data) {
             await _waitForDB();
-            const tx = db.db.transaction(['faceapi_assets'], 'readwrite');
+            const tx = _getIDB().transaction(['faceapi_assets'], 'readwrite');
             tx.objectStore('faceapi_assets').put({ key, data });
             return new Promise((resolve, reject) => {
                 tx.oncomplete = () => resolve();
@@ -4500,7 +4501,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const box = document.createElement('div');
                 box.style.cssText = 'background:#1e1e2e;border:1px solid rgba(138,43,226,0.4);border-radius:16px;padding:30px;max-width:400px;width:90%;text-align:center;color:#e0e0e0;font-family:inherit;';
                 box.innerHTML = `
-                    <div style="font-size:2em;margin-bottom:12px;">🧠</div>
+                    <div style="font-size:1.2em;margin-bottom:12px;color:#bb86fc;font-weight:bold;">Face Recognition Setup</div>
                     <h3 style="color:#bb86fc;margin:0 0 10px;">Face Recognition Setup</h3>
                     <p style="font-size:0.9em;opacity:0.8;margin:0 0 20px;">Select the <b>data.json</b> file included in the app folder (~10 MB).</p>
                 `;
@@ -4521,7 +4522,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     if (!file) return;
                     settled = true;
                     // Show loading state
-                    box.innerHTML = '<div style="font-size:2em;margin-bottom:12px;">⏳</div><p style="color:#bb86fc;">Loading AI models...</p>';
+                    box.innerHTML = '<p style="color:#bb86fc;font-weight:bold;">Loading AI models...</p>';
                     try {
                         const text = await file.text();
                         const bundle = JSON.parse(text);
@@ -4557,8 +4558,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
 
         async function deleteFaceAssets() {
-            if (!db.db) return;
-            const tx = db.db.transaction(['faceapi_assets'], 'readwrite');
+            if (!_getIDB()) return;
+            const tx = _getIDB().transaction(['faceapi_assets'], 'readwrite');
             tx.objectStore('faceapi_assets').clear();
             await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
             _faceapiLibLoaded = false;
@@ -5306,7 +5307,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         function createSparkles(element) {
             if (!element) return;
             const rect = element.getBoundingClientRect();
-            const sparkles = ['★', '✦', '✧', '✨', '⭐'];
+            const sparkles = ['★', '✦', '✧', '◆', '◇'];
 
             for (let i = 0; i < 8; i++) {
                 const sparkle = document.createElement('div');
@@ -5341,7 +5342,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             });
             // Init face scan toggle label
             const fsBtn = document.getElementById('faceScanToggleBtn');
-            if (fsBtn) fsBtn.textContent = _faceScanEnabled ? '🔍 Face Scan: ON' : '🔍 Face Scan: OFF';
+            if (fsBtn) fsBtn.textContent = _faceScanEnabled ? 'Face Scan: ON' : 'Face Scan: OFF';
             // Pre-load face models from IndexedDB cache if face scan was already enabled
             if (_faceScanEnabled) {
                 areFaceAssetsDownloaded().then(hasAssets => {
@@ -5510,7 +5511,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const start = (leaderboardPage - 1) * LEADERBOARD_PER_PAGE;
             const rest = allRest.slice(start, start + LEADERBOARD_PER_PAGE);
             const rankLabels = ['first', 'second', 'third'];
-            const crownEmojis = ['👑', '✦', '✦'];
+            const crownEmojis = ['★', '✦', '✦'];
 
             let html = '';
 
@@ -5691,7 +5692,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             _faceScanEnabled = !_faceScanEnabled;
             localStorage.setItem('faceScanEnabled', _faceScanEnabled);
             const btn = document.getElementById('faceScanToggleBtn');
-            if (btn) btn.textContent = _faceScanEnabled ? '🔍 Face Scan: ON' : '🔍 Face Scan: OFF';
+            if (btn) btn.textContent = _faceScanEnabled ? 'Face Scan: ON' : 'Face Scan: OFF';
             if (_faceScanEnabled) {
                 // Check if AI assets are downloaded
                 const hasAssets = await areFaceAssetsDownloaded();
@@ -5705,13 +5706,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         showNotify(msg, { type: err.message === 'Cancelled' ? 'info' : 'error' });
                         _faceScanEnabled = false;
                         localStorage.setItem('faceScanEnabled', 'false');
-                        if (btn) btn.textContent = '🔍 Face Scan: OFF';
+                        if (btn) btn.textContent = 'Face Scan: OFF';
                         return;
                     }
                 }
                 // Now load models from cache
                 const ok = await ensureFaceModelsLoaded((msg) => showNotify(msg, { type: 'info' }));
-                if (ok) showNotify('Face recognition ready ✓', { type: 'success' });
+                if (ok) showNotify('Face recognition ready', { type: 'success' });
                 else showNotify('Failed to load face models', { type: 'error' });
             } else {
                 showNotify('Face recognition disabled', { type: 'info' });
@@ -5744,13 +5745,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             overlay.id = 'faceScanOverlay';
             overlay.innerHTML = `
                 <div class="face-scan-modal">
-                    <h3>🔍 Scanning for "${tag}"</h3>
+                    <h3>Scanning for "${tag}"</h3>
                     <p class="fs-subtitle">Face recognition powered by face-api.js neural network</p>
                     <div class="face-scan-progress"><div class="face-scan-progress-fill" id="fsScanProgress" style="width:0%"></div></div>
                     <p id="fsScanStatus" style="color:#b19cd9;font-size:0.82em;text-align:center;">Loading face recognition models...</p>
                     <div id="fsScanResults"></div>
                     <div id="fsScanActions" style="text-align:center;margin-top:14px;display:none;">
-                        <button class="fs-accept-all-btn" id="fsAcceptAllBtn">✓ Tag All High Confidence</button>
+                        <button class="fs-accept-all-btn" id="fsAcceptAllBtn">Tag All High Confidence</button>
                         <button class="fs-close-btn" onclick="closeFaceScan()">Done</button>
                     </div>
                 </div>
@@ -5798,7 +5799,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                             <span class="face-match-confidence ${m.confidence}">${pct}% ${m.confidence}</span>
                         </div>
                         <div class="face-match-actions">
-                            <button class="fs-accept-btn" onclick="acceptFaceMatch(${m.imageId}, '${tag.replace(/'/g, "\\'")}')">✓ Tag</button>
+                            <button class="fs-accept-btn" onclick="acceptFaceMatch(${m.imageId}, '${tag.replace(/'/g, "\\'")}')">Tag</button>
                             <button class="fs-reject-btn" onclick="rejectFaceMatch(${m.imageId})">✗</button>
                         </div>
                     </div>`;
@@ -5819,7 +5820,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (highMatches.length === 0) {
                     acceptAllBtn.style.display = 'none';
                 } else {
-                    acceptAllBtn.textContent = `✓ Tag All High Confidence (${highMatches.length})`;
+                    acceptAllBtn.textContent = `Tag All High Confidence (${highMatches.length})`;
                     acceptAllBtn.onclick = async () => {
                         for (const m of highMatches) await acceptFaceMatch(m.imageId, tag);
                         showNotify(`Tagged ${highMatches.length} images with ${tag}`, { type: 'success' });
@@ -5834,7 +5835,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (card) {
                 card.style.opacity = '0.4';
                 card.style.pointerEvents = 'none';
-                card.querySelector('.face-match-actions').innerHTML = '<span style="color:#66bb6a;font-size:0.85em;">✓ Tagged</span>';
+                card.querySelector('.face-match-actions').innerHTML = '<span style="color:#66bb6a;font-size:0.85em;">Tagged</span>';
             }
         }
 
@@ -6130,7 +6131,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 a.download = `tierlist-${new Date().toISOString().split('T')[0]}.png`;
                 a.click();
                 URL.revokeObjectURL(url);
-                showNotify('Tier list exported! 🏆', { type: 'success' });
+                showNotify('Tier list exported!', { type: 'success' });
             });
         }
 
