@@ -2441,6 +2441,179 @@
         .leaderboard-pagination button, .tags-pagination button {
             padding: 6px 16px;
         }
+
+        /* === MULTI-BATTLE 2x2 === */
+        .multi-battle-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        .multi-battle-card {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            background: rgba(30,30,50,0.8);
+            border: 2px solid rgba(138,43,226,0.25);
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+            aspect-ratio: 1;
+        }
+        .multi-battle-card:hover {
+            transform: scale(1.02);
+            border-color: #bb86fc;
+            box-shadow: 0 0 20px rgba(187,134,252,0.4);
+        }
+        .multi-battle-card img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .multi-battle-card .multi-rating {
+            position: absolute;
+            bottom: 6px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10,10,20,0.75);
+            color: #bb86fc;
+            font-size: 0.78em;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 10px;
+            backdrop-filter: blur(4px);
+            white-space: nowrap;
+        }
+        .multi-battle-card.winner-selected {
+            border-color: #4caf50;
+            box-shadow: 0 0 30px rgba(76,175,80,0.5);
+        }
+        .multi-battle-card.loser-dismissed {
+            opacity: 0.35;
+            transform: scale(0.95);
+        }
+        #multiBattleToggle.active {
+            background: linear-gradient(135deg, #8a2be2, #5f3dc4);
+            color: white;
+            border-color: #bb86fc;
+            box-shadow: 0 0 8px rgba(138,43,226,0.4);
+        }
+
+        /* === STATS VIEW === */
+        .stats-view-container {
+            background: rgba(30,30,40,0.9);
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid rgba(138,43,226,0.4);
+            backdrop-filter: blur(10px);
+        }
+        .stats-section { margin-bottom: 28px; }
+        .stats-section h3 {
+            color: #ff6b9d;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 14px;
+        }
+        .stat-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+            font-size: 0.85em;
+        }
+        .stat-bar-label { color: #b19cd9; min-width: 60px; text-align: right; }
+        .stat-bar-track {
+            flex: 1;
+            height: 14px;
+            background: rgba(138,43,226,0.12);
+            border-radius: 7px;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 7px;
+            background: linear-gradient(90deg, #5f3dc4, #bb86fc);
+            transition: width 0.4s ease;
+        }
+        .stat-bar-count { color: #e0d4f5; min-width: 36px; font-size: 0.9em; }
+        .stat-cards-row {
+            display: flex; flex-wrap: wrap; gap: 12px;
+        }
+        .stat-card {
+            background: rgba(138,43,226,0.1);
+            border: 1px solid rgba(138,43,226,0.3);
+            border-radius: 12px;
+            padding: 14px 18px;
+            min-width: 120px;
+            text-align: center;
+        }
+        .stat-card-value { font-size: 1.6em; font-weight: 700; color: #bb86fc; }
+        .stat-card-label { font-size: 0.75em; color: #b19cd9; margin-top: 2px; }
+        .controversy-row, .streak-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 0; border-bottom: 1px solid rgba(138,43,226,0.1);
+        }
+        .controversy-row img, .streak-row img {
+            width: 48px; height: 48px; object-fit: cover;
+            border-radius: 8px; flex-shrink: 0;
+        }
+        .controversy-info { flex: 1; font-size: 0.85em; }
+        .controversy-bar { height: 6px; border-radius: 3px; margin-top: 4px; }
+
+        /* === TIER LIST === */
+        .tier-list-container {
+            background: rgba(20,20,35,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid rgba(138,43,226,0.4);
+        }
+        .tier-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tier-label {
+            min-width: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+        }
+        .tier-images {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 6px;
+            background: rgba(30,30,50,0.6);
+            min-height: 80px;
+            align-content: flex-start;
+        }
+        .tier-images img {
+            width: 72px; height: 72px;
+            object-fit: cover;
+            border-radius: 6px;
+            cursor: grab;
+            transition: transform 0.15s;
+            border: 2px solid transparent;
+        }
+        .tier-images img:hover { transform: scale(1.08); border-color: #bb86fc; }
+        .tier-images img.dragging { opacity: 0.4; cursor: grabbing; }
+        .tier-images.drag-over { background: rgba(138,43,226,0.2); }
+        .tier-export-btn {
+            background: linear-gradient(135deg, #8a2be2, #5f3dc4);
+            color: #fff; border: none; border-radius: 12px;
+            padding: 10px 24px; font-size: 0.9em; font-weight: 700;
+            cursor: pointer; margin-top: 16px; font-family: inherit;
+        }
+        .tier-export-btn:hover { filter: brightness(1.15); }
     </style>
 </head>
 <body>
@@ -2545,6 +2718,17 @@
 
         <div id="battleView" class="hidden">
             <div id="battleTagFilter"></div>
+            <div id="battleModeBar" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;">
+                <button id="undoBtn" onclick="undoBattle()" style="background:rgba(255,107,157,0.15);color:#ff6b9d;border:1px solid rgba(255,107,157,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;display:none;">
+                    ↩ Undo <span style="opacity:0.6;font-size:0.85em;">Ctrl+Z</span>
+                </button>
+                <button id="multiBattleToggle" onclick="toggleMultiBattle()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
+                    ⊞ Pick Best of 4
+                </button>
+                <button onclick="showBattleView()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
+                    ⚔ 1v1 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">S</span>
+                </button>
+            </div>
 
             <div id="battleContainer" class="battle-container">
                 <!-- Battle cards will be inserted here -->
@@ -3113,7 +3297,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         class IndexedDBStorage {
             constructor() {
                 this.dbName = 'FacemashDB';
-                this.version = 2;
+                this.version = 3;
                 this.db = null;
             }
 
@@ -3160,6 +3344,14 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                             }
                             if (!db.objectStoreNames.contains('packs')) {
                                 db.createObjectStore('packs', { keyPath: 'packId' });
+                            }
+                        }
+
+                        // Upgrade from v2 → v3: add history store
+                        if (oldVersion < 3) {
+                            if (!db.objectStoreNames.contains('history')) {
+                                const histStore = db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
+                                histStore.createIndex('timestamp', 'timestamp', { unique: false });
                             }
                         }
                     };
@@ -3412,6 +3604,59 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     return await navigator.storage.estimate();
                 }
                 return { usage: 0, quota: 500 * 1024 * 1024 };
+            }
+
+            async saveHistoryEntry(entry) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['history'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+                    const store = tx.objectStore('history');
+                    const request = store.add(entry);
+                    request.onsuccess = () => resolve(request.result); // returns new id
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getLastHistoryEntry() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['history'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+                    const store = tx.objectStore('history');
+                    const request = store.openCursor(null, 'prev');
+                    request.onsuccess = (e) => resolve(e.target.result ? e.target.result.value : null);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async deleteHistoryEntry(id) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['history'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+                    const store = tx.objectStore('history');
+                    const request = store.delete(id);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getHistoryPage(limit = 50) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['history'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+                    const store = tx.objectStore('history');
+                    const results = [];
+                    const request = store.openCursor(null, 'prev');
+                    request.onsuccess = (e) => {
+                        const cursor = e.target.result;
+                        if (cursor && results.length < limit) {
+                            results.push(cursor.value);
+                            cursor.continue();
+                        } else {
+                            resolve(results);
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
             }
         }
 
@@ -3666,6 +3911,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const expectedWinner = 1 / (1 + Math.pow(10, (loser.rating - winner.rating) / 400));
                 const expectedLoser = 1 / (1 + Math.pow(10, (winner.rating - loser.rating) / 400));
 
+                const prevWinnerRating = winner.rating;
+                const prevLoserRating = loser.rating;
+                const prevWinnerBattles = winner.battles;
+                const prevLoserBattles = loser.battles;
+                const prevWinnerWins = winner.wins || 0;
+                const prevLoserLosses = loser.losses || 0;
+
                 winner.rating = Math.round(winner.rating + K * (1 - expectedWinner));
                 loser.rating = Math.round(loser.rating + K * (0 - expectedLoser));
 
@@ -3676,6 +3928,52 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 await this._saveImageUpdate(winner);
                 await this._saveImageUpdate(loser);
+
+                // Persist history entry
+                const entry = {
+                    timestamp: Date.now(),
+                    winnerId, loserId,
+                    winnerGain: winner.rating - prevWinnerRating,
+                    loserLoss: loser.rating - prevLoserRating,
+                    prev: {
+                        winnerId, loserId,
+                        winnerRating: prevWinnerRating, loserRating: prevLoserRating,
+                        winnerBattles: prevWinnerBattles, loserBattles: prevLoserBattles,
+                        winnerWins: prevWinnerWins, loserLosses: prevLoserLosses,
+                    }
+                };
+                await this.storage.saveHistoryEntry(entry);
+
+                // Track recent pairs for anti-repeat
+                const pairKey = [winnerId, loserId].sort().join('|');
+                this._recentPairs = this._recentPairs || [];
+                this._recentPairs.unshift(pairKey);
+                if (this._recentPairs.length > 20) this._recentPairs.pop();
+            }
+
+            async undoLastBattle() {
+                const entry = await this.storage.getLastHistoryEntry();
+                if (!entry) return null;
+
+                const { prev } = entry;
+                const winner = this.images.find(img => img.id === prev.winnerId);
+                const loser = this.images.find(img => img.id === prev.loserId);
+
+                if (winner) {
+                    winner.rating = prev.winnerRating;
+                    winner.battles = prev.winnerBattles;
+                    winner.wins = prev.winnerWins;
+                    await this._saveImageUpdate(winner);
+                }
+                if (loser) {
+                    loser.rating = prev.loserRating;
+                    loser.battles = prev.loserBattles;
+                    loser.losses = prev.loserLosses;
+                    await this._saveImageUpdate(loser);
+                }
+
+                await this.storage.deleteHistoryEntry(entry.id);
+                return entry;
             }
 
             _getActiveImages() {
@@ -3707,10 +4005,75 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             getRandomPair() {
+                return this.getSmartPair();
+            }
+
+            getQuadPair() {
+                const active = this._getActiveImages();
+                if (active.length < 4) return null;
+                this._recentPairs = this._recentPairs || [];
+
+                // Pick seed from under-battled pool
+                const sorted = [...active].sort((a, b) => a.battles - b.battles);
+                const cutoff = Math.ceil(active.length * 0.3);
+                const underBattled = sorted.slice(0, Math.max(cutoff, 4));
+                const seed = underBattled[Math.floor(Math.random() * underBattled.length)];
+
+                // Pick 3 opponents with similar ratings, no recent repeats
+                const candidates = active
+                    .filter(img => img.id !== seed.id)
+                    .sort((a, b) => Math.abs(a.rating - seed.rating) - Math.abs(b.rating - seed.rating));
+
+                const chosen = [seed];
+                for (const c of candidates) {
+                    if (chosen.length === 4) break;
+                    if (chosen.some(x => x.id === c.id)) continue;
+                    chosen.push(c);
+                }
+                // Shuffle so winner position isn't predictable
+                chosen.sort(() => Math.random() - 0.5);
+                this.currentPair = chosen;
+                return this.currentPair;
+            }
+
+            getSmartPair() {
                 const active = this._getActiveImages();
                 if (active.length < 2) return null;
-                const shuffled = [...active].sort(() => Math.random() - 0.5);
-                this.currentPair = [shuffled[0], shuffled[1]];
+
+                this._recentPairs = this._recentPairs || [];
+
+                // Step 1: prioritise under-battled images (bottom 30% by battle count)
+                const sorted = [...active].sort((a, b) => a.battles - b.battles);
+                const cutoff = Math.ceil(active.length * 0.30);
+                const underBattled = sorted.slice(0, Math.max(cutoff, 2));
+
+                // Pick seed: weighted towards under-battled
+                let seed;
+                if (Math.random() < 0.6 && underBattled.length >= 2) {
+                    seed = underBattled[Math.floor(Math.random() * underBattled.length)];
+                } else {
+                    seed = active[Math.floor(Math.random() * active.length)];
+                }
+
+                // Step 2: Swiss-style — find opponent with similar rating
+                // Sort by rating distance, exclude seed itself and recent pairs
+                const candidates = active
+                    .filter(img => img.id !== seed.id)
+                    .sort((a, b) => Math.abs(a.rating - seed.rating) - Math.abs(b.rating - seed.rating));
+
+                // Try to find a candidate not seen recently
+                let opponent = null;
+                for (const c of candidates) {
+                    const key = [seed.id, c.id].sort().join('|');
+                    if (!this._recentPairs.includes(key)) {
+                        opponent = c;
+                        break;
+                    }
+                }
+                // Fallback: closest rating even if repeated
+                if (!opponent) opponent = candidates[0];
+
+                this.currentPair = [seed, opponent];
                 return this.currentPair;
             }
 
@@ -4351,19 +4714,36 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
         }
 
+        let multiBattleMode = false;
+
+        function toggleMultiBattle() {
+            multiBattleMode = !multiBattleMode;
+            const btn = document.getElementById('multiBattleToggle');
+            if (btn) btn.classList.toggle('active', multiBattleMode);
+            renderBattle();
+        }
+
         async function renderBattle() {
             renderTagFilterBar('battleTagFilter');
-            const pair = db.getRandomPair();
             const container = document.getElementById('battleContainer');
             const emptyBattle = document.getElementById('emptyBattle');
 
+            if (multiBattleMode) {
+                await renderMultiBattle(container, emptyBattle);
+            } else {
+                await renderDuelBattle(container, emptyBattle);
+            }
+        }
+
+        async function renderDuelBattle(container, emptyBattle) {
+            const pair = db.getRandomPair();
             if (!pair) {
                 container.innerHTML = '';
                 emptyBattle.classList.remove('hidden');
                 return;
             }
-
             emptyBattle.classList.add('hidden');
+            container.className = 'battle-container';
 
             const miniTags0 = (pair[0].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
             const miniTags1 = (pair[1].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
@@ -4397,12 +4777,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 </div>
             `;
 
-            // Load battle images asynchronously
             const [data0, data1] = await Promise.all([
                 db.getImageData(pair[0].id),
                 db.getImageData(pair[1].id)
             ]);
-            // Store on pair for battle history
             pair[0]._data = data0;
             pair[1]._data = data1;
             const bg0 = document.getElementById('battleBg0');
@@ -4415,36 +4793,72 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (img1 && data1) img1.src = data1;
         }
 
+        async function renderMultiBattle(container, emptyBattle) {
+            const quad = db.getQuadPair();
+            if (!quad) {
+                container.innerHTML = '';
+                emptyBattle.classList.remove('hidden');
+                return;
+            }
+            emptyBattle.classList.add('hidden');
+            container.className = 'multi-battle-grid';
+
+            container.innerHTML = quad.map((img, i) => `
+                <div class="multi-battle-card" data-id="${img.id}" onclick="selectMultiWinner(${img.id})" title="${(img.tags||[]).join(', ')}">
+                    <img src="" alt="Option ${i+1}" id="multiBattleImg${i}">
+                    <div class="multi-rating">★ ${img.rating}</div>
+                </div>
+            `).join('');
+
+            const dataArr = await Promise.all(quad.map(img => db.getImageData(img.id)));
+            dataArr.forEach((data, i) => {
+                const el = document.getElementById(`multiBattleImg${i}`);
+                if (el && data) el.src = data;
+            });
+        }
+
         async function selectWinner(winnerId) {
             if (!db.currentPair) return;
+            if (multiBattleMode) { selectMultiWinner(winnerId); return; }
 
             const winner = db.currentPair.find(img => img.id === winnerId);
             const loser = db.currentPair.find(img => img.id !== winnerId);
             const winnerCard = document.querySelector(`[data-id="${winnerId}"]`);
-
             const loserCard = document.querySelector(`[data-id="${loser.id}"]`);
 
             if (winnerCard) winnerCard.classList.add('winner-selected');
             if (loserCard) loserCard.classList.add('loser-dismissed');
 
-            const prevWinnerRating = winner.rating;
-            const prevLoserRating = loser.rating;
-
             createSparkles(winnerCard);
             await db.updateRatings(winnerId, loser.id);
 
-            const now = new Date();
-            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            battleHistory.unshift({
-                winnerId: winner.id,
-                loserId: loser.id,
-                winnerGain: winner.rating - prevWinnerRating,
-                loserLoss: loser.rating - prevLoserRating,
-                time: time
-            });
-            if (battleHistory.length > 50) battleHistory.pop();
+            const undoBtn = document.getElementById('undoBtn');
+            if (undoBtn) undoBtn.style.display = '';
 
             setTimeout(() => renderBattle(), 600);
+        }
+
+        async function selectMultiWinner(winnerId) {
+            if (!db.currentPair) return;
+            const winner = db.currentPair.find(img => img.id === winnerId);
+            if (!winner) return;
+
+            const winnerCard = document.querySelector(`[data-id="${winnerId}"]`);
+            if (winnerCard) winnerCard.classList.add('winner-selected');
+            createSparkles(winnerCard);
+
+            // Winner beats all other 3 — generate 3 history entries
+            const losers = db.currentPair.filter(img => img.id !== winnerId);
+            for (const loser of losers) {
+                const loserCard = document.querySelector(`[data-id="${loser.id}"]`);
+                if (loserCard) loserCard.classList.add('loser-dismissed');
+                await db.updateRatings(winnerId, loser.id);
+            }
+
+            const undoBtn = document.getElementById('undoBtn');
+            if (undoBtn) undoBtn.style.display = '';
+
+            setTimeout(() => renderBattle(), 700);
         }
 
         function createSparkles(element) {
@@ -4578,6 +4992,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     if (key === 'ArrowRight') { e.preventDefault(); selectWinner(db.currentPair[1].id); return; }
                     if (lower === 's') { e.preventDefault(); renderBattle(); return; }
                 }
+
+                // Undo in battle view
+                if (currentView === 'battle' && lower === 'z' && e.ctrlKey) { e.preventDefault(); undoBattle(); return; }
+                if (currentView === 'battle' && lower === 'u') { e.preventDefault(); undoBattle(); return; }
 
                 // Leaderboard view shortcuts
                 if (currentView === 'leaderboard') {
@@ -4732,8 +5150,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             renderLeaderboard();
         }
 
-        const battleHistory = [];
-
         function showHistory() {
             hideAllViews();
             document.getElementById('historyView').classList.remove('hidden');
@@ -4741,19 +5157,23 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             renderHistory();
         }
 
-        function renderHistory() {
+        async function renderHistory() {
             const list = document.getElementById('historyList');
             const empty = document.getElementById('emptyHistory');
 
-            if (battleHistory.length === 0) {
+            const entries = await db.storage.getHistoryPage(100);
+
+            if (entries.length === 0) {
                 list.innerHTML = '';
                 empty.classList.remove('hidden');
                 return;
             }
 
             empty.classList.add('hidden');
-
-            list.innerHTML = battleHistory.map(b => `
+            list.innerHTML = entries.map(b => {
+                const time = new Date(b.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const date = new Date(b.timestamp).toLocaleDateString();
+                return `
                 <div class="history-item">
                     <img data-image-id="${b.winnerId}" class="history-thumb winner" alt="Winner">
                     <div class="history-vs">VS</div>
@@ -4762,11 +5182,23 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         <div class="history-rating-change">
                             <span class="gain">+${b.winnerGain}</span> / <span class="loss">${b.loserLoss}</span>
                         </div>
-                        <div class="history-time">${b.time}</div>
+                        <div class="history-time">${date} ${time}</div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
             observeLazyImages(list);
+        }
+
+        async function undoBattle() {
+            const entry = await db.undoLastBattle();
+            if (!entry) {
+                showNotify('Nothing to undo', { type: 'info' });
+                return;
+            }
+            const undoBtn = document.getElementById('undoBtn');
+            if (undoBtn) undoBtn.style.display = 'none';
+            showNotify('Battle undone ↩', { type: 'success' });
+            renderBattle();
         }
 
         async function exportData() {
