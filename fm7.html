@@ -645,7 +645,7 @@
             background: rgba(0, 0, 0, 0.3);
         }
 
-        .showcase-card .showcase-img-wrap img {
+        .showcase-card .showcase-img-wrap img, .showcase-card .showcase-img-wrap video {
             display: block;
             width: 100%;
             height: 100%;
@@ -1164,7 +1164,7 @@
             background: rgba(0, 0, 0, 0.3);
         }
 
-        .pack-thumbnails img {
+        .pack-thumbnails img, .pack-thumbnails video {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -2426,7 +2426,7 @@
             font-size: 0.75em;
             color: rgba(255,255,255,0.4);
         }
-        img[data-image-id] {
+        img[data-image-id], video[data-image-id] {
             background: rgba(138,43,226,0.08);
             min-height: 60px;
         }
@@ -2466,7 +2466,7 @@
             border-color: #bb86fc;
             box-shadow: 0 0 20px rgba(187,134,252,0.4);
         }
-        .multi-battle-card img {
+        .multi-battle-card img, .multi-battle-card video {
             width: 100%; height: 100%;
             object-fit: cover;
             display: block;
@@ -2783,7 +2783,7 @@
                 </p>
             </div>
 
-            <input type="file" id="fileInput" accept="image/*" multiple>
+            <input type="file" id="fileInput" accept="image/*,video/*" multiple>
         </div>
 
         <div id="battleView" class="hidden">
@@ -3036,7 +3036,7 @@
             <div style="display:flex; gap:8px; margin-bottom:8px;">
                 <button onclick="toggleSelectAllCreatePack()" id="createPackSelectAllBtn">Select All</button>
                 <button onclick="uploadToCreatePack()">Upload Images</button>
-                <input type="file" id="createPackUploadInput" accept="image/*" multiple style="display:none">
+                <input type="file" id="createPackUploadInput" accept="image/*,video/*" multiple style="display:none">
             </div>
             <div class="create-pack-grid" id="createPackImageGrid"></div>
             <div class="modal-buttons">
@@ -3047,7 +3047,7 @@
     </div>
 
     <input type="file" id="packFileInput" accept=".json" multiple style="display:none">
-    <input type="file" id="packImageUploadInput" accept="image/*" multiple style="display:none">
+    <input type="file" id="packImageUploadInput" accept="image/*,video/*" multiple style="display:none">
 
     <!-- Hover preview for image grids -->
     <img class="img-hover-preview" id="imgHoverPreview" src="" alt="">
@@ -3380,7 +3380,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
                     }
                     for (let i = 0; i < samples.length; i++) {
-                        await db.addImage(samples[i], 0, 0, packId);
+                        let sha256 = null, phash = null;
+                        try {
+                            sha256 = await computeImageHash(samples[i]);
+                            phash = await computePerceptualHash(samples[i]);
+                        } catch (e) { console.warn('Hash failed for sample', i, e); }
+                        await db.addImage(samples[i], 0, 0, packId, undefined, sha256, phash);
                         if (samples.length > 10) {
                             updatePackLoader(i + 1, samples[i]);
                             if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
@@ -3855,10 +3860,18 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 };
                 await this.storage.savePack(packMeta);
 
-                // Store images with packId and per-image tags
+                // Store images with packId and per-image tags (compute hashes for duplicate detection)
                 for (let i = 0; i < normalizedImages.length; i++) {
                     const entry = normalizedImages[i];
                     const id = Date.now() + Math.random();
+                    // Compute hashes for duplicate detection
+                    let sha256 = null, phash = null;
+                    try {
+                        if (entry.data && !entry.data.startsWith('data:video')) {
+                            sha256 = await computeImageHash(entry.data);
+                            phash = await computePerceptualHash(entry.data);
+                        }
+                    } catch (e) { console.warn('Hash computation failed for pack image', i, e); }
                     const image = {
                         id: id,
                         data: entry.data,
@@ -3870,6 +3883,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         width: 0,
                         height: 0,
                         packId: packJson.packId,
+                        sha256: sha256,
+                        phash: phash,
+                        type: (entry.data && entry.data.startsWith('data:video')) ? 'video' : 'image',
                     };
                     await this.storage.saveImage(image);
                     const { data: _d, ...meta } = image;
@@ -3972,7 +3988,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             // --- Image methods ---
 
-            async addImage(dataUrl, width, height, packId, tags, sha256, phash) {
+            async addImage(dataUrl, width, height, packId, tags, sha256, phash, type) {
                 const id = Date.now() + Math.random();
                 const image = {
                     id: id,
@@ -3987,6 +4003,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     packId: packId || null,
                     sha256: sha256 || null,
                     phash: phash || null,
+                    type: type || 'image',
                 };
 
                 try {
@@ -4269,27 +4286,47 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         let currentView = 'battle';
         let activeTagFilters = new Set();
 
+        // Helper: is this image record a video?
+        function isVideoRecord(imgMeta) {
+            return imgMeta && imgMeta.type === 'video';
+        }
+
+        // Helper: generate HTML tag for an image or video element
+        function mediaHTML(imgMeta, extraAttrs) {
+            const attrs = extraAttrs || '';
+            if (isVideoRecord(imgMeta)) {
+                return `<video data-image-id="${imgMeta.id}" muted loop playsinline autoplay ${attrs}></video>`;
+            }
+            return `<img data-image-id="${imgMeta.id}" ${attrs}>`;
+        }
+
+        // Helper: set src on an element (works for both img and video)
+        function setMediaSrc(el, data) {
+            if (!el || !data) return;
+            el.src = data;
+        }
+
         // === LAZY IMAGE LOADING SYSTEM ===
         const _imageObserver = new IntersectionObserver((entries) => {
             for (const entry of entries) {
                 if (entry.isIntersecting) {
-                    const img = entry.target;
-                    const id = Number(img.dataset.imageId);
+                    const el = entry.target;
+                    const id = Number(el.dataset.imageId);
                     if (id) {
                         db.getImageData(id).then(data => {
-                            if (data) img.src = data;
+                            if (data) el.src = data;
                         });
                     }
-                    _imageObserver.unobserve(img);
+                    _imageObserver.unobserve(el);
                 }
             }
         }, { rootMargin: '300px' });
 
         function observeLazyImages(container) {
-            const imgs = (container || document).querySelectorAll('img[data-image-id]');
-            imgs.forEach(img => {
-                if (!img.src || img.src === location.href) {
-                    _imageObserver.observe(img);
+            const els = (container || document).querySelectorAll('[data-image-id]');
+            els.forEach(el => {
+                if (!el.src || el.src === location.href) {
+                    _imageObserver.observe(el);
                 }
             });
         }
@@ -4350,6 +4387,14 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
         }
 
+        function isVideoFile(file) {
+            return file.type.startsWith('video/');
+        }
+
+        function isMediaFile(file) {
+            return file.type.startsWith('image/') || file.type.startsWith('video/');
+        }
+
         function readImageLossless(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -4379,7 +4424,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                         canvas.toBlob((blob) => {
                             const reader = new FileReader();
-                            reader.onloadend = () => resolve({ dataUrl: reader.result, width: Math.round(width), height: Math.round(height) });
+                            reader.onloadend = () => resolve({ dataUrl: reader.result, width: Math.round(width), height: Math.round(height), type: 'image' });
                             reader.onerror = reject;
                             reader.readAsDataURL(blob);
                         }, 'image/png');
@@ -4390,6 +4435,29 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
+        }
+
+        function readVideoFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const video = document.createElement('video');
+                    video.muted = true;
+                    video.preload = 'metadata';
+                    video.onloadedmetadata = () => {
+                        resolve({ dataUrl: e.target.result, width: video.videoWidth || 0, height: video.videoHeight || 0, type: 'video' });
+                        URL.revokeObjectURL(video.src);
+                    };
+                    video.onerror = reject;
+                    video.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function readMediaFile(file) {
+            return isVideoFile(file) ? readVideoFile(file) : readImageLossless(file);
         }
 
         // --- Duplicate Detection Utilities ---
@@ -4797,15 +4865,39 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         async function findDuplicates(newImages, existingImages) {
             if (existingImages.length === 0) return [];
 
-            // Use cached hashes from metadata - no need to reload image data
+            // Use cached hashes from metadata; backfill any images missing hashes
             const existingHashes = [];
-            for (const img of existingImages) {
+            let backfillCount = 0;
+            for (let idx = 0; idx < existingImages.length; idx++) {
+                const img = existingImages[idx];
+                if (img.type === 'video') continue; // skip videos
+
                 if (img.sha256 && img.phash) {
                     existingHashes.push({ image: img, sha: img.sha256, phash: img.phash });
+                } else {
+                    // Backfill: load image data, compute hashes, persist them
+                    try {
+                        const data = await db.getImageData(img.id);
+                        if (data) {
+                            const sha = await computeImageHash(data);
+                            const ph = await computePerceptualHash(data);
+                            if (sha && ph) {
+                                img.sha256 = sha;
+                                img.phash = ph;
+                                // Persist to IndexedDB so future checks are instant
+                                await db._saveImageUpdate(img);
+                                existingHashes.push({ image: img, sha: sha, phash: ph });
+                                backfillCount++;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Could not backfill hash for image', img.id, e);
+                    }
                 }
-                // Yield every 50 to keep UI responsive
-                if (existingHashes.length % 50 === 0) await new Promise(r => setTimeout(r, 0));
+                // Yield every 20 to keep UI responsive
+                if (idx % 20 === 0) await new Promise(r => setTimeout(r, 0));
             }
+            if (backfillCount > 0) console.log(`Backfilled hashes for ${backfillCount} existing images`);
 
             if (existingHashes.length === 0) return [];
 
@@ -4988,33 +5080,38 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const totalFiles = files.length;
 
             if (totalFiles > 0) {
-                showPackLoader('', totalFiles, 'Processing Images...');
+                showPackLoader('', totalFiles, 'Processing Files...');
             }
 
-            // First pass: read all images with hashes
+            // First pass: read all media files with hashes
             const processed = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                if (!file.type.startsWith('image/')) {
+                if (!isMediaFile(file)) {
                     failCount++;
                     updatePackLoader(processed.length + failCount, null);
                     continue;
                 }
 
                 try {
-                    const result = await readImageLossless(file);
+                    const result = await readMediaFile(file);
                     result.fileName = file.name;
-                    // Compute hashes for duplicate detection
-                    result.sha256 = await computeImageHash(result.dataUrl);
-                    result.phash = await computePerceptualHash(result.dataUrl);
+                    // Compute hashes for duplicate detection (only for images)
+                    if (result.type !== 'video') {
+                        result.sha256 = await computeImageHash(result.dataUrl);
+                        result.phash = await computePerceptualHash(result.dataUrl);
+                    } else {
+                        result.sha256 = null;
+                        result.phash = null;
+                    }
                     processed.push(result);
-                    updatePackLoader(processed.length + failCount, result.dataUrl);
+                    updatePackLoader(processed.length + failCount, result.type !== 'video' ? result.dataUrl : null);
                 } catch (e) {
-                    console.error('Error processing image:', e);
+                    console.error('Error processing file:', e);
                     failCount++;
                     updatePackLoader(processed.length + failCount, null);
                 }
-                // Yield to UI every 2 images to prevent freezing
+                // Yield to UI every 2 files to prevent freezing
                 if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
             }
             hidePackLoader();
@@ -5031,7 +5128,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Add remaining images
             for (const img of imagesToAdd) {
                 try {
-                    const success = await db.addImage(img.dataUrl, img.width, img.height, undefined, undefined, img.sha256, img.phash);
+                    const success = await db.addImage(img.dataUrl, img.width, img.height, undefined, undefined, img.sha256, img.phash, img.type);
                     if (success) successCount++;
                     else failCount++;
                 } catch (e) {
@@ -5208,11 +5305,16 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const miniTags0 = (pair[0].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
             const miniTags1 = (pair[1].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
 
+            const tag0 = isVideoRecord(pair[0]) ? 'video' : 'img';
+            const tag1 = isVideoRecord(pair[1]) ? 'video' : 'img';
+            const vAttr0 = tag0 === 'video' ? ' muted loop playsinline autoplay' : '';
+            const vAttr1 = tag1 === 'video' ? ' muted loop playsinline autoplay' : '';
+
             container.innerHTML = `
                 <div class="battle-card" data-id="${pair[0].id}" onclick="selectWinner(${pair[0].id})">
                     <div class="battle-image-container">
-                        <img src="" alt="" class="battle-image-bg" id="battleBg0">
-                        <img src="" alt="Option 1" class="battle-image" id="battleImg0">
+                        <${tag0} src="" alt="" class="battle-image-bg" id="battleBg0"${vAttr0}></${tag0}>
+                        <${tag0} src="" alt="Option 1" class="battle-image" id="battleImg0"${vAttr0}></${tag0}>
                     </div>
                     <div class="battle-rating">
                         <svg class="star-icon" viewBox="0 0 24 24" fill="#bb86fc">
@@ -5224,8 +5326,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 </div>
                 <div class="battle-card" data-id="${pair[1].id}" onclick="selectWinner(${pair[1].id})">
                     <div class="battle-image-container">
-                        <img src="" alt="" class="battle-image-bg" id="battleBg1">
-                        <img src="" alt="Option 2" class="battle-image" id="battleImg1">
+                        <${tag1} src="" alt="" class="battle-image-bg" id="battleBg1"${vAttr1}></${tag1}>
+                        <${tag1} src="" alt="Option 2" class="battle-image" id="battleImg1"${vAttr1}></${tag1}>
                     </div>
                     <div class="battle-rating">
                         <svg class="star-icon" viewBox="0 0 24 24" fill="#bb86fc">
@@ -5244,13 +5346,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             pair[0]._data = data0;
             pair[1]._data = data1;
             const bg0 = document.getElementById('battleBg0');
-            const img0 = document.getElementById('battleImg0');
+            const el0 = document.getElementById('battleImg0');
             const bg1 = document.getElementById('battleBg1');
-            const img1 = document.getElementById('battleImg1');
+            const el1 = document.getElementById('battleImg1');
             if (bg0 && data0) bg0.src = data0;
-            if (img0 && data0) img0.src = data0;
+            if (el0 && data0) el0.src = data0;
             if (bg1 && data1) bg1.src = data1;
-            if (img1 && data1) img1.src = data1;
+            if (el1 && data1) el1.src = data1;
         }
 
         async function renderMultiBattle(container, emptyBattle) {
@@ -5263,12 +5365,14 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             emptyBattle.classList.add('hidden');
             container.className = 'multi-battle-grid';
 
-            container.innerHTML = quad.map((img, i) => `
-                <div class="multi-battle-card" data-id="${img.id}" onclick="selectMultiWinner(${img.id})" title="${(img.tags||[]).join(', ')}">
-                    <img src="" alt="Option ${i+1}" id="multiBattleImg${i}">
+            container.innerHTML = quad.map((img, i) => {
+                const tag = isVideoRecord(img) ? 'video' : 'img';
+                const vAttr = tag === 'video' ? ' muted loop playsinline autoplay' : '';
+                return `<div class="multi-battle-card" data-id="${img.id}" onclick="selectMultiWinner(${img.id})" title="${(img.tags||[]).join(', ')}">
+                    <${tag} src="" alt="Option ${i+1}" id="multiBattleImg${i}"${vAttr}></${tag}>
                     <div class="multi-rating">★ ${img.rating}</div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
 
             const dataArr = await Promise.all(quad.map(img => db.getImageData(img.id)));
             dataArr.forEach((data, i) => {
@@ -5540,7 +5644,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         <div class="showcase-card ${rankLabels[i]}">
                             <div class="showcase-rank">${crownEmojis[i]} #${i + 1} ${crownEmojis[i]}</div>
                             <div class="showcase-img-wrap">
-                                <img data-image-id="${img.id}" alt="Rank ${i + 1}">
+                                ${mediaHTML(img, `alt="Rank ${i + 1}"`)}
                             </div>
                             <div class="showcase-stats">
                                 <div class="rating">
@@ -5567,7 +5671,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return `
                     <div class="leaderboard-item">
                         <div class="leaderboard-rank">${rank}</div>
-                        <img data-image-id="${img.id}" alt="Rank ${rank}" class="leaderboard-image">
+                        ${mediaHTML(img, `alt="Rank ${rank}" class="leaderboard-image"`)}
                         <div class="leaderboard-info">
                             <div class="leaderboard-rating">
                                 <svg class="star-icon" viewBox="0 0 24 24" fill="#bb86fc" style="width:20px;height:20px;">
@@ -5674,11 +5778,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             list.innerHTML = entries.map(b => {
                 const time = new Date(b.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const date = new Date(b.timestamp).toLocaleDateString();
+                const winMeta = db.images.find(i => i.id === b.winnerId);
+                const loseMeta = db.images.find(i => i.id === b.loserId);
                 return `
                 <div class="history-item">
-                    <img data-image-id="${b.winnerId}" class="history-thumb winner" alt="Winner">
+                    ${mediaHTML(winMeta || {id: b.winnerId}, 'class="history-thumb winner" alt="Winner"')}
                     <div class="history-vs">VS</div>
-                    <img data-image-id="${b.loserId}" class="history-thumb loser" alt="Loser">
+                    ${mediaHTML(loseMeta || {id: b.loserId}, 'class="history-thumb loser" alt="Loser"')}
                     <div class="history-details">
                         <div class="history-rating-change">
                             <span class="gain">+${b.winnerGain}</span> / <span class="loss">${b.loserLoss}</span>
@@ -5810,7 +5916,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const tags = (img && img.tags) ? img.tags.join(', ') : '';
                 html += `
                     <div class="face-match-card" id="fsMatch${m.imageId}" data-image-id="${m.imageId}">
-                        <img data-image-id="${m.imageId}" alt="">
+                        ${mediaHTML(img || {id: m.imageId}, 'alt=""')}
                         <div class="face-match-info">
                             <div style="color:#e0d4f5;">★ ${img ? img.rating : '?'} ${tags ? '· <span style="opacity:0.6;">' + tags + '</span>' : ''}</div>
                             <span class="face-match-confidence ${m.confidence}">${pct}% ${m.confidence}</span>
@@ -5826,7 +5932,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Load thumbnails
             for (const m of matches) {
                 const data = await db.getImageData(m.imageId);
-                const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} img`);
+                const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} [data-image-id]`);
                 if (imgEl && data) imgEl.src = data;
             }
 
@@ -5973,7 +6079,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 battled.forEach(img => {
                     const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
                     html += `<div class="controversy-row">
-                        <img data-image-id="${img.id}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+                        ${mediaHTML(img, 'alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;"')}
                         <div class="controversy-info">
                             <div style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battles</div>
                             <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
@@ -5990,7 +6096,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 html += `<div class="stats-section"><h3>Under-Battled <span style="font-weight:400;opacity:0.6;">(fewest battles)</span></h3>`;
                 lowestBattled.forEach(img => {
                     html += `<div class="controversy-row">
-                        <img data-image-id="${img.id}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+                        ${mediaHTML(img, 'alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;"')}
                         <div class="controversy-info" style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battle${img.battles === 1 ? '' : 's'}</div>
                     </div>`;
                 });
@@ -6048,10 +6154,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                          ondragover="event.preventDefault();this.classList.add('drag-over')"
                          ondragleave="this.classList.remove('drag-over')"
                          ondrop="tierDrop(event,'${tier.label}')">
-                        ${ids.map(id => `<img data-image-id="${id}" data-id="${id}" draggable="true"
-                            ondragstart="tierDragStart(event,${id},'${tier.label}')"
-                            ondragend="this.classList.remove('dragging')"
-                            alt="" src="">`).join('')}
+                        ${ids.map(id => { const meta = db.images.find(i => i.id === id); const isV = isVideoRecord(meta); const tag = isV ? 'video' : 'img'; const vA = isV ? ' muted loop playsinline autoplay' : ''; return `<${tag} data-image-id="${id}" data-id="${id}" draggable="true"${vA} ondragstart="tierDragStart(event,${id},'${tier.label}')" ondragend="this.classList.remove('dragging')" alt="" src=""></${tag}>`; }).join('')}
                     </div>
                 </div>`;
             }).join('');
@@ -6059,7 +6162,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Load thumbnails
             for (const img of images) {
                 const data = await db.getImageData(img.id);
-                content.querySelectorAll(`img[data-id="${img.id}"]`).forEach(el => { if (data) el.src = data; });
+                content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) el.src = data; });
             }
         }
 
@@ -6131,11 +6234,23 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 for (const id of ids) {
                     const data = imgMap[id];
                     if (!data) { x += IMG_SIZE + PAD; continue; }
-                    await new Promise(resolve => {
-                        const im = new Image();
-                        im.onload = () => { ctx.drawImage(im, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
-                        im.src = data;
-                    });
+                    const meta = db.images.find(i => i.id === id);
+                    if (isVideoRecord(meta)) {
+                        // Draw video frame to canvas
+                        await new Promise(resolve => {
+                            const vid = document.createElement('video');
+                            vid.muted = true;
+                            vid.onloadeddata = () => { ctx.drawImage(vid, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
+                            vid.onerror = () => resolve();
+                            vid.src = data;
+                        });
+                    } else {
+                        await new Promise(resolve => {
+                            const im = new Image();
+                            im.onload = () => { ctx.drawImage(im, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
+                            im.src = data;
+                        });
+                    }
                     x += IMG_SIZE + PAD;
                 }
                 y += ROW_H + 4;
@@ -6565,7 +6680,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 html += `
                     <div class="pack-card" onclick="viewTagDetail('${tag.replace(/'/g, "\\'")}')" style="cursor:pointer;">
                         <div class="pack-thumbnails">
-                            ${thumbs.map(img => `<img data-image-id="${img.id}" alt="">`).join('')}
+                            ${thumbs.map(img => mediaHTML(img, 'alt=""')).join('')}
                             ${thumbs.length < 4 ? Array(4 - thumbs.length).fill('<div style="background:rgba(138,43,226,0.1);"></div>').join('') : ''}
                         </div>
                         <div class="pack-info">
@@ -6603,7 +6718,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const grid = document.getElementById('tagDetailGrid');
             grid.innerHTML = images.map((img, idx) => `
                 <div class="pack-detail-image-card">
-                    <img data-image-id="${img.id}" alt="" onclick="openImagePreview(tagDetailImages, ${idx})">
+                    ${mediaHTML(img, `alt="" onclick="openImagePreview(tagDetailImages, ${idx})"`)}
                 </div>
             `).join('');
 
@@ -6637,7 +6752,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 html += `
                     <div class="pack-card">
                         <div class="pack-thumbnails">
-                            ${thumbs.map(img => `<img data-image-id="${img.id}" alt="">`).join('')}
+                            ${thumbs.map(img => mediaHTML(img, 'alt=""')).join('')}
                             ${thumbs.length < 4 ? Array(4 - thumbs.length).fill('<div style="background:rgba(138,43,226,0.1);"></div>').join('') : ''}
                         </div>
                         <div class="pack-info">
@@ -6749,7 +6864,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return `
                     <div class="pack-detail-image-card">
                         <button class="pack-img-remove-btn" onclick="removeImageFromPack(${img.id})" title="Remove image">&times;</button>
-                        <img data-image-id="${img.id}" alt="" onclick="openImagePreview(packDetailImages, ${idx})">
+                        ${mediaHTML(img, `alt="" onclick="openImagePreview(packDetailImages, ${idx})"`)}
                         <div class="card-tags">
                             ${visibleHtml}${moreBtn}
                             <button class="tag-add-btn" onclick="showAddTagInput(${img.id}, this)">+ tag</button>
@@ -6959,15 +7074,29 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const img = previewImages[previewIndex];
             if (!img) return;
             const bgEl = document.getElementById('imagePreviewBg');
-            const imgEl = document.getElementById('imagePreviewImg');
+            const stageEl = document.getElementById('imagePreviewStage');
             const tagsEl = document.getElementById('imagePreviewTags');
             const counterEl = document.getElementById('imagePreviewCounter');
             const statsEl = document.getElementById('imagePreviewStats');
 
+            // Swap the element if type changed (img <-> video)
+            let imgEl = document.getElementById('imagePreviewImg');
+            const needsVideo = isVideoRecord(img);
+            const currentIsVideo = imgEl && imgEl.tagName === 'VIDEO';
+            if (needsVideo !== currentIsVideo) {
+                const newEl = needsVideo ? document.createElement('video') : document.createElement('img');
+                newEl.id = 'imagePreviewImg';
+                if (needsVideo) { newEl.muted = true; newEl.loop = true; newEl.playsInline = true; newEl.autoplay = true; }
+                newEl.alt = 'Preview';
+                if (imgEl) imgEl.replaceWith(newEl); else stageEl.appendChild(newEl);
+                imgEl = newEl;
+            }
+
             // Load image data asynchronously
             db.getImageData(img.id).then(data => {
                 if (data) {
-                    bgEl.style.backgroundImage = `url(${data})`;
+                    if (!needsVideo) bgEl.style.backgroundImage = `url(${data})`;
+                    else bgEl.style.backgroundImage = '';
                     imgEl.src = data;
                 }
             });
@@ -7241,31 +7370,36 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const totalFiles = files.length;
 
             if (totalFiles > 0) {
-                showPackLoader('', totalFiles, 'Processing Images...');
+                showPackLoader('', totalFiles, 'Processing Files...');
             }
 
-            // First pass: read all images with hashes
+            // First pass: read all media files with hashes
             const processed = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                if (!file.type.startsWith('image/')) {
+                if (!isMediaFile(file)) {
                     failCount++;
                     updatePackLoader(processed.length + failCount, null);
                     continue;
                 }
                 try {
-                    const result = await readImageLossless(file);
+                    const result = await readMediaFile(file);
                     result.fileName = file.name;
-                    result.sha256 = await computeImageHash(result.dataUrl);
-                    result.phash = await computePerceptualHash(result.dataUrl);
+                    if (result.type !== 'video') {
+                        result.sha256 = await computeImageHash(result.dataUrl);
+                        result.phash = await computePerceptualHash(result.dataUrl);
+                    } else {
+                        result.sha256 = null;
+                        result.phash = null;
+                    }
                     processed.push(result);
-                    updatePackLoader(processed.length + failCount, result.dataUrl);
+                    updatePackLoader(processed.length + failCount, result.type !== 'video' ? result.dataUrl : null);
                 } catch (err) {
-                    console.error('Error processing image for pack:', err);
+                    console.error('Error processing file for pack:', err);
                     failCount++;
                     updatePackLoader(processed.length + failCount, null);
                 }
-                // Yield to UI every 2 images
+                // Yield to UI every 2 files
                 if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
             }
             hidePackLoader();
@@ -7285,7 +7419,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Add remaining images
             for (const img of imagesToAdd) {
                 try {
-                    const success = await db.addImage(img.dataUrl, img.width, img.height, packId, undefined, img.sha256, img.phash);
+                    const success = await db.addImage(img.dataUrl, img.width, img.height, packId, undefined, img.sha256, img.phash, img.type);
                     if (success) successCount++;
                     else failCount++;
                 } catch (err) {
@@ -7406,9 +7540,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('createPackSelectAllBtn').textContent = 'Select All';
 
             const grid = document.getElementById('createPackImageGrid');
-            grid.innerHTML = db.images.map(img => `
-                <img data-image-id="${img.id}" class="selectable-img" data-id="${img.id}" onclick="toggleCreatePackImage(this, ${img.id})" alt="">
-            `).join('');
+            grid.innerHTML = db.images.map(img => {
+                if (isVideoRecord(img)) {
+                    return `<video data-image-id="${img.id}" class="selectable-img" data-id="${img.id}" muted loop playsinline autoplay onclick="toggleCreatePackImage(this, ${img.id})" alt=""></video>`;
+                }
+                return `<img data-image-id="${img.id}" class="selectable-img" data-id="${img.id}" onclick="toggleCreatePackImage(this, ${img.id})" alt="">`;
+            }).join('');
 
             document.getElementById('createPackModal').classList.add('active');
             observeLazyImages(grid);
@@ -7459,19 +7596,24 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             const grid = document.getElementById('createPackImageGrid');
 
-            // First pass: read all images with hashes
+            // First pass: read all media files with hashes
             const processed = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                if (!file.type.startsWith('image/')) continue;
+                if (!isMediaFile(file)) continue;
                 try {
-                    const result = await readImageLossless(file);
+                    const result = await readMediaFile(file);
                     result.fileName = file.name;
-                    result.sha256 = await computeImageHash(result.dataUrl);
-                    result.phash = await computePerceptualHash(result.dataUrl);
+                    if (result.type !== 'video') {
+                        result.sha256 = await computeImageHash(result.dataUrl);
+                        result.phash = await computePerceptualHash(result.dataUrl);
+                    } else {
+                        result.sha256 = null;
+                        result.phash = null;
+                    }
                     processed.push(result);
                 } catch (err) {
-                    console.error('Error uploading image to create pack:', err);
+                    console.error('Error uploading file to create pack:', err);
                 }
                 if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
             }
@@ -7487,20 +7629,21 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             for (const img of imagesToAdd) {
                 try {
-                    const success = await db.addImage(img.dataUrl, img.width, img.height);
+                    const success = await db.addImage(img.dataUrl, img.width, img.height, undefined, undefined, img.sha256, img.phash, img.type);
                     if (success) {
                         const newImg = db.images[db.images.length - 1];
                         createPackSelectedIds.add(newImg.id);
 
-                        const imgEl = document.createElement('img');
-                        imgEl.className = 'selectable-img selected';
-                        imgEl.dataset.id = newImg.id;
-                        imgEl.dataset.imageId = newImg.id;
-                        imgEl.alt = '';
-                        imgEl.onclick = function() { toggleCreatePackImage(this, newImg.id); };
-                        grid.appendChild(imgEl);
-                        // Load image data from cache
-                        db.getImageData(newImg.id).then(data => { if (data) imgEl.src = data; });
+                        const el = newImg.type === 'video' ? document.createElement('video') : document.createElement('img');
+                        if (newImg.type === 'video') { el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true; }
+                        el.className = 'selectable-img selected';
+                        el.dataset.id = newImg.id;
+                        el.dataset.imageId = newImg.id;
+                        el.alt = '';
+                        el.onclick = function() { toggleCreatePackImage(this, newImg.id); };
+                        grid.appendChild(el);
+                        // Load data from cache
+                        db.getImageData(newImg.id).then(data => { if (data) el.src = data; });
                     }
                 } catch (err) {
                     console.error('Error saving image to create pack:', err);
@@ -7544,6 +7687,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             function showPreview(e) {
                 const img = e.target;
                 if (!img.classList.contains('selectable-img')) return;
+                if (img.tagName === 'VIDEO') return; // skip hover preview for videos
                 currentTarget = img;
                 clearTimeout(hoverTimer);
                 hoverTimer = setTimeout(() => {
@@ -7615,14 +7759,14 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (!img) return;
 
             const stage = document.getElementById('slideshowStage');
-            stage.innerHTML = `<img data-image-id="${img.id}" alt="Rank ${slideshowIndex + 1}">`;
+            stage.innerHTML = mediaHTML(img, `alt="Rank ${slideshowIndex + 1}"`);
 
             // Load slide image asynchronously
             db.getImageData(img.id).then(data => {
                 if (data) {
-                    const imgEl = stage.querySelector('img');
-                    if (imgEl) imgEl.src = data;
-                    document.getElementById('slideshowBgBlur').style.backgroundImage = `url(${data})`;
+                    const el = stage.querySelector('[data-image-id]');
+                    if (el) el.src = data;
+                    if (!isVideoRecord(img)) document.getElementById('slideshowBgBlur').style.backgroundImage = `url(${data})`;
                 }
             });
             document.getElementById('slideshowRating').textContent = img.rating;
