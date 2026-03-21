@@ -2694,6 +2694,13 @@
                 <span>History<span class="jp">履歴</span></span>
                 <span class="kbd-hint">H</span>
             </button>
+            <button onclick="showStatsView()">
+                <span>Stats<span class="jp">統計</span></span>
+                <span class="kbd-hint">D</span>
+            </button>
+            <button onclick="showTierListView()">
+                <span>Tier List<span class="jp">ティア</span></span>
+            </button>
         </div>
 
         <div id="uploadSection" class="upload-section hidden">
@@ -2847,6 +2854,35 @@
                     </svg>
                     <div class="empty-state-text">No packs loaded <span style="font-size:0.6em; opacity:0.5;">パックなし</span></div>
                     <p style="opacity: 0.8;">Load pack files or create a new pack <span style="font-size:0.85em; opacity:0.6;">パックを読み込むか作成してね</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats View -->
+        <div id="statsView" class="hidden">
+            <div class="stats-view-container">
+                <h2 style="color:#bb86fc;text-align:center;margin:0 0 20px;">
+                    📊 Stats <span style="font-size:0.5em;opacity:0.5;">統計</span>
+                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings ↗</button>
+                    <button onclick="showTierListView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Tier List ↗</button>
+                </h2>
+                <div id="statsContent"></div>
+            </div>
+        </div>
+
+        <!-- Tier List View -->
+        <div id="tierListView" class="hidden">
+            <div class="tier-list-container">
+                <h2 style="color:#bb86fc;text-align:center;margin:0 0 16px;">
+                    🏆 Tier List <span style="font-size:0.5em;opacity:0.5;">ティアリスト</span>
+                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings ↗</button>
+                    <button onclick="showStatsView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Stats ↗</button>
+                </h2>
+                <p style="color:#b19cd9;font-size:0.82em;text-align:center;margin:0 0 14px;">Drag images between tiers to adjust. Auto-generated from Elo ratings.</p>
+                <div id="tierListContent"></div>
+                <div style="text-align:center;">
+                    <button class="tier-export-btn" onclick="exportTierListPNG()">📷 Export as PNG</button>
+                    <button class="tier-export-btn" onclick="renderTierList()" style="margin-left:8px;background:rgba(138,43,226,0.3);">↺ Reset</button>
                 </div>
             </div>
         </div>
@@ -4985,12 +5021,22 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (lower === 'i') { e.preventDefault(); importData(); return; }
                 if (lower === 'x') { e.preventDefault(); clearAll(); return; }
                 if (lower === 't') { e.preventDefault(); showTagsView(); return; }
+                if (lower === 'd') { e.preventDefault(); showStatsView(); return; }
 
                 // Battle view shortcuts
                 if (currentView === 'battle' && db.currentPair) {
-                    if (key === 'ArrowLeft') { e.preventDefault(); selectWinner(db.currentPair[0].id); return; }
-                    if (key === 'ArrowRight') { e.preventDefault(); selectWinner(db.currentPair[1].id); return; }
+                    if (!multiBattleMode) {
+                        if (key === 'ArrowLeft') { e.preventDefault(); selectWinner(db.currentPair[0].id); return; }
+                        if (key === 'ArrowRight') { e.preventDefault(); selectWinner(db.currentPair[1].id); return; }
+                    } else {
+                        // 1/2/3/4 picks winner in multi-battle
+                        const idx = parseInt(key) - 1;
+                        if (idx >= 0 && idx <= 3 && db.currentPair[idx]) {
+                            e.preventDefault(); selectMultiWinner(db.currentPair[idx].id); return;
+                        }
+                    }
                     if (lower === 's') { e.preventDefault(); renderBattle(); return; }
+                    if (lower === 'm') { e.preventDefault(); toggleMultiBattle(); return; }
                 }
 
                 // Undo in battle view
@@ -5126,6 +5172,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('historyView').classList.add('hidden');
             document.getElementById('packsView').classList.add('hidden');
             document.getElementById('tagsView').classList.add('hidden');
+            document.getElementById('statsView').classList.add('hidden');
+            document.getElementById('tierListView').classList.add('hidden');
             stopSlideshowTimer();
         }
 
@@ -5155,6 +5203,20 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('historyView').classList.remove('hidden');
             currentView = 'history';
             renderHistory();
+        }
+
+        function showStatsView() {
+            hideAllViews();
+            document.getElementById('statsView').classList.remove('hidden');
+            currentView = 'stats';
+            renderStats();
+        }
+
+        function showTierListView() {
+            hideAllViews();
+            document.getElementById('tierListView').classList.remove('hidden');
+            currentView = 'tierlist';
+            renderTierList();
         }
 
         async function renderHistory() {
@@ -5199,6 +5261,246 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (undoBtn) undoBtn.style.display = 'none';
             showNotify('Battle undone ↩', { type: 'success' });
             renderBattle();
+        }
+
+        // ========== STATS DASHBOARD ==========
+        function renderStats() {
+            const images = db.images.filter(img => !img.excluded);
+            const content = document.getElementById('statsContent');
+            if (images.length === 0) {
+                content.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No data yet — start battling! ⚔️</p>';
+                return;
+            }
+
+            const totalBattles = images.reduce((s, i) => s + (i.battles || 0), 0) / 2 | 0;
+            const ratings = images.map(i => i.rating);
+            const minR = Math.min(...ratings), maxR = Math.max(...ratings);
+            const avgR = (ratings.reduce((s, v) => s + v, 0) / ratings.length) | 0;
+
+            // Rating histogram: 10 buckets
+            const buckets = 10;
+            const bucketSize = Math.max(1, Math.ceil((maxR - minR + 1) / buckets));
+            const hist = Array(buckets).fill(0);
+            ratings.forEach(r => { const b = Math.min(buckets - 1, (r - minR) / bucketSize | 0); hist[b]++; });
+            const histMax = Math.max(...hist);
+
+            // Win-rate for controversy (closest to 50%)
+            const battled = images.filter(i => i.battles >= 5).sort((a, b) => {
+                const aWr = Math.abs((a.wins || 0) / a.battles - 0.5);
+                const bWr = Math.abs((b.wins || 0) / b.battles - 0.5);
+                return aWr - bWr;
+            }).slice(0, 5);
+
+            // Biggest upset: low-rated beat high-rated
+            // Approximate from low battles + high rating vs many losses
+            const highestRated = [...images].sort((a, b) => b.rating - a.rating).slice(0, 5);
+            const lowestBattled = [...images].filter(i => i.battles > 0).sort((a, b) => a.battles - b.battles).slice(0, 5);
+
+            let html = `
+                <div class="stats-section">
+                    <div class="stat-cards-row">
+                        <div class="stat-card"><div class="stat-card-value">${images.length}</div><div class="stat-card-label">Images</div></div>
+                        <div class="stat-card"><div class="stat-card-value">${totalBattles}</div><div class="stat-card-label">Battles</div></div>
+                        <div class="stat-card"><div class="stat-card-value">${avgR}</div><div class="stat-card-label">Avg Rating</div></div>
+                        <div class="stat-card"><div class="stat-card-value">${maxR}</div><div class="stat-card-label">Peak Rating</div></div>
+                        <div class="stat-card"><div class="stat-card-value">${minR}</div><div class="stat-card-label">Floor Rating</div></div>
+                    </div>
+                </div>
+                <div class="stats-section">
+                    <h3>📊 Rating Distribution</h3>
+                    ${hist.map((count, i) => {
+                        const label = (minR + i * bucketSize) + '–' + (minR + (i + 1) * bucketSize - 1);
+                        const pct = histMax ? Math.round(count / histMax * 100) : 0;
+                        return `<div class="stat-bar-row">
+                            <div class="stat-bar-label" style="font-size:0.78em;min-width:72px;">${label}</div>
+                            <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+                            <div class="stat-bar-count">${count}</div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+
+            if (battled.length > 0) {
+                html += `<div class="stats-section"><h3>🎲 Most Controversial <span style="font-weight:400;opacity:0.6;">(closest to 50% win rate)</span></h3>`;
+                battled.forEach(img => {
+                    const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
+                    html += `<div class="controversy-row">
+                        <img data-image-id="${img.id}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+                        <div class="controversy-info">
+                            <div style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battles</div>
+                            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                                <div class="controversy-bar" style="width:${wr}%;background:#4caf50;flex:none;min-width:2px;"></div>
+                                <span style="font-size:0.82em;color:#b19cd9;">${wr}% win</span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            if (lowestBattled.length > 0) {
+                html += `<div class="stats-section"><h3>😴 Under-Battled <span style="font-weight:400;opacity:0.6;">(fewest battles)</span></h3>`;
+                lowestBattled.forEach(img => {
+                    html += `<div class="controversy-row">
+                        <img data-image-id="${img.id}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+                        <div class="controversy-info" style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battle${img.battles === 1 ? '' : 's'}</div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+            observeLazyImages(content);
+        }
+
+        // ========== TIER LIST ==========
+        const TIERS = [
+            { label: 'S', color: '#ff6b6b', minPct: 90 },
+            { label: 'A', color: '#ffa94d', minPct: 75 },
+            { label: 'B', color: '#ffd43b', minPct: 55 },
+            { label: 'C', color: '#74c0fc', minPct: 35 },
+            { label: 'D', color: '#b197fc', minPct: 15 },
+            { label: 'F', color: '#868e96', minPct: 0  },
+        ];
+        let tierData = {}; // { 'S': [imgId,...], 'A': [...], ... }
+
+        function buildTierData(images) {
+            const sorted = [...images].sort((a, b) => b.rating - a.rating);
+            const n = sorted.length;
+            tierData = {};
+            TIERS.forEach(t => tierData[t.label] = []);
+            sorted.forEach((img, idx) => {
+                const pct = n > 1 ? (1 - idx / (n - 1)) * 100 : 100;
+                const tier = TIERS.find(t => pct >= t.minPct) || TIERS[TIERS.length - 1];
+                tierData[tier.label].push(img.id);
+            });
+        }
+
+        let _tierDraggingId = null;
+        let _tierDraggingSrcTier = null;
+
+        async function renderTierList() {
+            const images = db.images.filter(img => !img.excluded);
+            const content = document.getElementById('tierListContent');
+            if (images.length === 0) {
+                content.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No images yet!</p>';
+                return;
+            }
+            buildTierData(images);
+
+            const imgMap = {};
+            images.forEach(img => imgMap[img.id] = img);
+
+            content.innerHTML = TIERS.map(tier => {
+                const ids = tierData[tier.label] || [];
+                return `
+                <div class="tier-row" data-tier="${tier.label}">
+                    <div class="tier-label" style="background:${tier.color};">${tier.label}</div>
+                    <div class="tier-images" data-tier="${tier.label}"
+                         ondragover="event.preventDefault();this.classList.add('drag-over')"
+                         ondragleave="this.classList.remove('drag-over')"
+                         ondrop="tierDrop(event,'${tier.label}')">
+                        ${ids.map(id => `<img data-image-id="${id}" data-id="${id}" draggable="true"
+                            ondragstart="tierDragStart(event,${id},'${tier.label}')"
+                            ondragend="this.classList.remove('dragging')"
+                            alt="" src="">`).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Load thumbnails
+            for (const img of images) {
+                const data = await db.getImageData(img.id);
+                content.querySelectorAll(`img[data-id="${img.id}"]`).forEach(el => { if (data) el.src = data; });
+            }
+        }
+
+        function tierDragStart(event, imgId, srcTier) {
+            _tierDraggingId = imgId;
+            _tierDraggingSrcTier = srcTier;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function tierDrop(event, destTier) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            if (!_tierDraggingId || _tierDraggingSrcTier === destTier) return;
+
+            // Move from src to dest
+            tierData[_tierDraggingSrcTier] = (tierData[_tierDraggingSrcTier] || []).filter(id => id !== _tierDraggingId);
+            tierData[destTier] = tierData[destTier] || [];
+            if (!tierData[destTier].includes(_tierDraggingId)) tierData[destTier].push(_tierDraggingId);
+
+            // Move DOM element
+            const img = document.querySelector(`.tier-images img[data-id="${_tierDraggingId}"]`);
+            const destZone = document.querySelector(`.tier-images[data-tier="${destTier}"]`);
+            if (img && destZone) destZone.appendChild(img);
+            _tierDraggingId = null;
+            _tierDraggingSrcTier = null;
+        }
+
+        async function exportTierListPNG() {
+            const content = document.getElementById('tierListContent');
+            const canvas = document.createElement('canvas');
+            const LABEL_W = 56, IMG_SIZE = 76, PAD = 6, ROW_H = IMG_SIZE + PAD * 2;
+            const allImages = db.images.filter(img => !img.excluded);
+            const imgMap = {};
+            for (const img of allImages) {
+                const data = await db.getImageData(img.id);
+                if (data) imgMap[img.id] = data;
+            }
+            const tierRows = TIERS.filter(t => (tierData[t.label] || []).length > 0);
+            const maxPerRow = Math.max(...tierRows.map(t => (tierData[t.label] || []).length));
+            const W = LABEL_W + maxPerRow * (IMG_SIZE + PAD) + PAD;
+            const H = tierRows.length * (ROW_H + 4) + 40;
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#14122a';
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillStyle = '#bb86fc';
+            ctx.textAlign = 'center';
+            ctx.fillText('Anime Facemash — Tier List', W / 2, 22);
+
+            let y = 36;
+            for (const tier of tierRows) {
+                const ids = tierData[tier.label] || [];
+                // Tier label background
+                ctx.fillStyle = tier.color;
+                ctx.beginPath();
+                ctx.roundRect(0, y, LABEL_W, ROW_H, 8);
+                ctx.fill();
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText(tier.label, LABEL_W / 2, y + ROW_H / 2 + 10);
+                // Image row background
+                ctx.fillStyle = 'rgba(30,30,50,0.9)';
+                ctx.fillRect(LABEL_W, y, W - LABEL_W, ROW_H);
+
+                let x = LABEL_W + PAD;
+                for (const id of ids) {
+                    const data = imgMap[id];
+                    if (!data) { x += IMG_SIZE + PAD; continue; }
+                    await new Promise(resolve => {
+                        const im = new Image();
+                        im.onload = () => { ctx.drawImage(im, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
+                        im.src = data;
+                    });
+                    x += IMG_SIZE + PAD;
+                }
+                y += ROW_H + 4;
+            }
+
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tierlist-${new Date().toISOString().split('T')[0]}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showNotify('Tier list exported! 🏆', { type: 'success' });
+            });
         }
 
         async function exportData() {
