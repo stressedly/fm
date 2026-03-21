@@ -3175,6 +3175,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (!this.db) return [];
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const request = store.getAll();
                     request.onsuccess = () => resolve(request.result || []);
@@ -3187,6 +3188,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (!this.db) return [];
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const results = [];
                     const request = store.openCursor();
@@ -3207,6 +3209,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async getImage(id) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const request = store.get(id);
                     request.onsuccess = () => resolve(request.result || null);
@@ -3218,6 +3221,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async iterateImages(callback) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const request = store.openCursor();
                     request.onsuccess = (e) => {
@@ -3236,6 +3240,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async iterateImagesByPackId(packId, callback) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const index = store.index('packId');
                     const request = index.openCursor(IDBKeyRange.only(packId));
@@ -3255,6 +3260,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async getImageMetaByPackId(packId) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const index = store.index('packId');
                     const request = index.openCursor(IDBKeyRange.only(packId));
@@ -3273,9 +3279,31 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 });
             }
 
+            async getImageBatch(afterKey, count) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+                    const store = tx.objectStore('images');
+                    const range = afterKey !== undefined ? IDBKeyRange.lowerBound(afterKey, true) : null;
+                    const results = [];
+                    const request = store.openCursor(range);
+                    request.onsuccess = (e) => {
+                        const cursor = e.target.result;
+                        if (cursor && results.length < count) {
+                            results.push(cursor.value);
+                            cursor.continue();
+                        } else {
+                            resolve(results);
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
             async saveImage(image) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const request = store.put(image);
                     request.onsuccess = () => resolve();
@@ -3286,6 +3314,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async deleteImage(imageId) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const request = store.delete(imageId);
                     request.onsuccess = () => resolve();
@@ -3300,6 +3329,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async getImagesByPackId(packId) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     const index = store.index('packId');
                     const request = index.getAll(packId);
@@ -3312,6 +3342,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const images = await this.getImagesByPackId(packId);
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['images'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('images');
                     for (const img of images) {
                         store.delete(img.id);
@@ -3325,6 +3356,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (!this.db) return [];
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['packs'], 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('packs');
                     const request = store.getAll();
                     request.onsuccess = () => resolve(request.result || []);
@@ -3335,6 +3367,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async savePack(pack) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['packs'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('packs');
                     const request = store.put(pack);
                     request.onsuccess = () => resolve();
@@ -3345,6 +3378,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async deletePack(packId) {
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['packs'], 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     const store = tx.objectStore('packs');
                     const request = store.delete(packId);
                     request.onsuccess = () => resolve();
@@ -3364,6 +3398,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return new Promise((resolve, reject) => {
                     const storeNames = [...this.db.objectStoreNames];
                     const tx = this.db.transaction(storeNames, 'readwrite');
+                    tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
                     for (const name of storeNames) {
                         tx.objectStore(name).clear();
                     }
@@ -3554,11 +3589,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return packId;
             }
 
-            // Streaming pack export to avoid OOM
+            // Pack export with yield points to avoid Firefox slow-script dialog
             async exportPackAsBlob(packId) {
                 const pack = this.packs.find(p => p.packId === packId);
                 if (!pack) return null;
 
+                const images = await this.storage.getImagesByPackId(packId);
                 const parts = [];
                 const header = {
                     packVersion: 2, packId: pack.packId, name: pack.name,
@@ -3567,17 +3603,16 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 };
                 const headerJson = JSON.stringify(header);
                 parts.push(headerJson.slice(0, -1)); // remove trailing }
+                parts.push(',"imageCount":' + images.length + ',"images":[');
 
-                let count = 0;
-                const imageParts = [];
-                await this.storage.iterateImagesByPackId(packId, (img) => {
-                    if (count > 0) imageParts.push(',');
-                    imageParts.push(JSON.stringify({ data: img.data, tags: img.tags || [] }));
-                    count++;
-                });
+                for (let i = 0; i < images.length; i++) {
+                    if (i > 0) parts.push(',');
+                    parts.push(JSON.stringify({ data: images[i].data, tags: images[i].tags || [] }));
+                    if (i > 0 && i % 50 === 0) {
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
 
-                parts.push(',"imageCount":' + count + ',"images":[');
-                parts.push(...imageParts);
                 parts.push(']}');
                 return new Blob(parts, { type: 'application/json' });
             }
@@ -3692,18 +3727,26 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 await updateStorageInfo();
             }
 
-            // Streaming export - builds Blob from small parts to avoid OOM
+            // Batched export - fetches 50 records at a time with yields to avoid Firefox slow-script dialog
             async exportDataAsBlob() {
+                const BATCH_SIZE = 50;
                 const parts = [];
                 parts.push('{"version":2,"exportDate":"');
                 parts.push(new Date().toISOString());
                 parts.push('","images":[');
                 let first = true;
-                await this.storage.iterateImages((image) => {
-                    if (!first) parts.push(',');
-                    parts.push(JSON.stringify(image));
-                    first = false;
-                });
+                let lastKey;
+                while (true) {
+                    const batch = await this.storage.getImageBatch(lastKey, BATCH_SIZE);
+                    for (const image of batch) {
+                        if (!first) parts.push(',');
+                        parts.push(JSON.stringify(image));
+                        first = false;
+                    }
+                    if (batch.length < BATCH_SIZE) break;
+                    lastKey = batch[batch.length - 1].id;
+                    await new Promise(r => setTimeout(r, 0));
+                }
                 parts.push('],"packs":');
                 parts.push(JSON.stringify(this.packs));
                 parts.push('}');
@@ -3881,11 +3924,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         // --- Duplicate Detection Utilities ---
 
         async function computeImageHash(dataUrl) {
-            const data = dataUrl.split(',')[1] || dataUrl;
-            const binary = atob(data);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+            const response = await fetch(dataUrl);
+            const buffer = await response.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
@@ -4368,10 +4409,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const img0 = document.getElementById('battleImg0');
             const bg1 = document.getElementById('battleBg1');
             const img1 = document.getElementById('battleImg1');
-            if (bg0) bg0.src = data0;
-            if (img0) img0.src = data0;
-            if (bg1) bg1.src = data1;
-            if (img1) img1.src = data1;
+            if (bg0 && data0) bg0.src = data0;
+            if (img0 && data0) img0.src = data0;
+            if (bg1 && data1) bg1.src = data1;
+            if (img1 && data1) img1.src = data1;
         }
 
         async function selectWinner(winnerId) {
