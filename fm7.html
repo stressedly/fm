@@ -6197,49 +6197,199 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('importModal').classList.remove('active');
         }
 
+        // Stream-parse a large JSON export file without loading it all into memory
+        async function streamImportFile(file) {
+            const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks
+            let offset = 0;
+            let buffer = '';
+            let images = [];
+            let packs = null;
+            let imageCount = 0;
+            let inImages = false;
+            let depth = 0;
+            let objStart = -1;
+
+            async function readChunk() {
+                const slice = file.slice(offset, offset + CHUNK_SIZE);
+                const text = await slice.text();
+                offset += CHUNK_SIZE;
+                return text;
+            }
+
+            // Read header to detect format
+            const firstChunk = await readChunk();
+            buffer = firstChunk;
+
+            // Check if it's a pack file (small enough to parse directly)
+            if (buffer.trimStart().startsWith('{"packVersion') || buffer.trimStart().startsWith('{ "packVersion')) {
+                // Pack files are typically small, read the whole thing
+                while (offset < file.size) {
+                    buffer += await readChunk();
+                }
+                return { type: 'pack', data: JSON.parse(buffer) };
+            }
+
+            // For v2 export files, stream-parse the images array
+            // Find the start of "images":[
+            const imagesIdx = buffer.indexOf('"images":[');
+            if (imagesIdx === -1) {
+                // Small file or different format, try full parse
+                while (offset < file.size) buffer += await readChunk();
+                return { type: 'full', data: JSON.parse(buffer) };
+            }
+
+            // Clear the DB first since we're streaming
+            await db.clear();
+
+            // Skip to after "images":[
+            let pos = imagesIdx + '"images":['.length;
+            buffer = buffer.slice(pos);
+
+            // Now stream-parse individual image objects from the array
+            showNotify('Importing...', { message: 'Reading images from file...', type: 'info', duration: 0 });
+
+            while (true) {
+                // Find complete JSON objects in buffer
+                while (true) {
+                    // Skip whitespace and commas
+                    let i = 0;
+                    while (i < buffer.length && (buffer[i] === ' ' || buffer[i] === ',' || buffer[i] === '\n' || buffer[i] === '\r' || buffer[i] === '\t')) i++;
+                    buffer = buffer.slice(i);
+
+                    if (buffer.length === 0) break;
+
+                    // Check if we've hit the end of the images array
+                    if (buffer[0] === ']') {
+                        buffer = buffer.slice(1);
+                        inImages = false;
+                        break;
+                    }
+
+                    if (buffer[0] !== '{') break;
+
+                    // Find matching closing brace
+                    depth = 0;
+                    let inStr = false;
+                    let esc = false;
+                    let found = false;
+                    for (let j = 0; j < buffer.length; j++) {
+                        const c = buffer[j];
+                        if (esc) { esc = false; continue; }
+                        if (c === '\\' && inStr) { esc = true; continue; }
+                        if (c === '"') { inStr = !inStr; continue; }
+                        if (inStr) continue;
+                        if (c === '{') depth++;
+                        else if (c === '}') {
+                            depth--;
+                            if (depth === 0) {
+                                const objStr = buffer.slice(0, j + 1);
+                                buffer = buffer.slice(j + 1);
+                                const image = JSON.parse(objStr);
+                                if (!image.packId) image.packId = null;
+                                await db.storage.saveImage(image);
+                                imageCount++;
+                                if (imageCount % 50 === 0) {
+                                    showNotify('Importing...', { message: `${imageCount} images imported...`, type: 'info', duration: 0 });
+                                    await new Promise(r => setTimeout(r, 0));
+                                }
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) break; // Need more data
+                }
+
+                if (inImages === false) break; // Done with images array
+                if (offset >= file.size) break; // No more file to read
+
+                // Read more data
+                buffer += await readChunk();
+                inImages = true;
+            }
+
+            // Now parse the remaining part for "packs"
+            // Read rest of file if needed
+            while (offset < file.size) {
+                buffer += await readChunk();
+            }
+            const packsMatch = buffer.match(/"packs"\s*:\s*/);
+            if (packsMatch) {
+                const packsStart = packsMatch.index + packsMatch[0].length;
+                const packsStr = buffer.slice(packsStart).replace(/\}\s*$/, '');
+                try {
+                    const packsData = JSON.parse(packsStr);
+                    for (const pack of packsData) {
+                        await db.storage.savePack(pack);
+                    }
+                } catch (e) {
+                    console.warn('[Import] Could not parse packs section:', e);
+                }
+            }
+
+            db.images = await db.storage.getAllImagesMeta();
+            await db.loadPacks();
+            await updateStorageInfo();
+            return { type: 'streamed', imageCount };
+        }
+
         document.getElementById('importInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             try {
-                const text = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Failed to read file'));
-                    reader.readAsText(file);
-                });
-                console.log('[Import] File size:', file.size, 'bytes, text length:', text.length, 'last char:', JSON.stringify(text.slice(-1)));
-                if (!text.endsWith('}') && !text.endsWith('}\n') && !text.endsWith('}\r\n')) {
-                    throw new Error('File appears truncated (size: ' + file.size + ', last chars: ' + JSON.stringify(text.slice(-20)) + '). Try re-exporting.');
-                }
-                const data = JSON.parse(text);
-
-                // Detect pack files
-                if (data.packVersion) {
+                // For files > 100MB, use streaming import
+                if (file.size > 100 * 1024 * 1024) {
+                    const doReplace = await showConfirm('Replace all data?', { message: `This is a large file (${(file.size / 1024 / 1024).toFixed(0)}MB). This will replace all current images and ratings.`, confirmText: 'Replace', danger: true });
+                    if (!doReplace) { e.target.value = ''; return; }
                     closeImportModal();
-                    const imgCount = (data.images || []).length;
-                    if (imgCount > 10) {
-                        showPackLoader(file.name, imgCount);
-                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-                    }
-                    const loaded = await db.loadPackFromFile(data, (current, thumbUrl) => {
-                        if (imgCount > 10) updatePackLoader(current, thumbUrl);
-                    });
-                    if (imgCount > 10) hidePackLoader();
-                    if (loaded) {
-                        await showNotify(`Pack "${data.name}" loaded!`, { message: `${imgCount} images imported`, type: 'success' });
+                    const result = await streamImportFile(file);
+                    if (result.type === 'pack') {
+                        const data = result.data;
+                        const imgCount = (data.images || []).length;
+                        const loaded = await db.loadPackFromFile(data);
+                        if (loaded) {
+                            await showNotify(`Pack "${data.name}" loaded!`, { message: `${imgCount} images imported`, type: 'success' });
+                        } else {
+                            await showNotify('Pack already loaded.', { type: 'info' });
+                        }
+                        showPacksView();
                     } else {
-                        await showNotify('Pack already loaded.', { type: 'info' });
+                        await showNotify('Data imported successfully!', { message: `${result.imageCount} images imported`, type: 'success' });
+                        showBattleView();
                     }
-                    showPacksView();
                 } else {
-                    const doReplace = await showConfirm('Replace all data?', { message: 'This will replace all current images and ratings.', confirmText: 'Replace', danger: true });
-                    if (doReplace) {
-                        const success = await db.importData(data);
-                        if (success) {
-                            await showNotify('Data imported successfully!', { type: 'success' });
-                            closeImportModal();
-                            showBattleView();
+                    // Small files: use original approach
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+
+                    // Detect pack files
+                    if (data.packVersion) {
+                        closeImportModal();
+                        const imgCount = (data.images || []).length;
+                        if (imgCount > 10) {
+                            showPackLoader(file.name, imgCount);
+                            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        }
+                        const loaded = await db.loadPackFromFile(data, (current, thumbUrl) => {
+                            if (imgCount > 10) updatePackLoader(current, thumbUrl);
+                        });
+                        if (imgCount > 10) hidePackLoader();
+                        if (loaded) {
+                            await showNotify(`Pack "${data.name}" loaded!`, { message: `${imgCount} images imported`, type: 'success' });
+                        } else {
+                            await showNotify('Pack already loaded.', { type: 'info' });
+                        }
+                        showPacksView();
+                    } else {
+                        const doReplace = await showConfirm('Replace all data?', { message: 'This will replace all current images and ratings.', confirmText: 'Replace', danger: true });
+                        if (doReplace) {
+                            const success = await db.importData(data);
+                            if (success) {
+                                await showNotify('Data imported successfully!', { type: 'success' });
+                                closeImportModal();
+                                showBattleView();
+                            }
                         }
                     }
                 }
