@@ -6197,150 +6197,149 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('importModal').classList.remove('active');
         }
 
-        // Stream-parse a large JSON export file using ReadableStream to avoid memory limits
+        // Stream-parse a large JSON export file using Blob.slice to avoid memory limits
         async function streamImportFile(file) {
-            const stream = file.stream();
-            const reader = stream.getReader();
-            const decoder = new TextDecoder();
+            const CHUNK = 8 * 1024 * 1024; // 8MB slices
+            let offset = 0;
+            let buf = '';
             let imageCount = 0;
-            let done = false;
 
-            // Accumulate chunks as array of strings, join only when needed
-            let chunks = [];
-            let chunksLen = 0;
-
-            async function pullChunk() {
-                const result = await reader.read();
-                if (result.done) { done = true; return ''; }
-                return decoder.decode(result.value, { stream: true });
+            async function readMore() {
+                if (offset >= file.size) return false;
+                const end = Math.min(offset + CHUNK, file.size);
+                const chunk = await file.slice(offset, end).text();
+                buf += chunk;
+                offset = end;
+                return true;
             }
 
-            function getBuffer() {
-                if (chunks.length === 1) return chunks[0];
-                const joined = chunks.join('');
-                chunks = [joined];
-                chunksLen = joined.length;
-                return joined;
-            }
+            // Read first chunk to detect format
+            await readMore();
 
-            function setBuffer(s) {
-                chunks = s.length > 0 ? [s] : [];
-                chunksLen = s.length;
-            }
-
-            function appendChunk(s) {
-                if (s.length === 0) return;
-                chunks.push(s);
-                chunksLen += s.length;
-            }
-
-            // Read initial data to detect format
-            appendChunk(await pullChunk());
-            // Keep reading until we have enough to detect format or file ends
-            while (chunksLen < 100 && !done) appendChunk(await pullChunk());
-            let buffer = getBuffer();
-
-            // Check if it's a pack file
-            if (buffer.trimStart().startsWith('{"packVersion') || buffer.trimStart().startsWith('{ "packVersion')) {
-                while (!done) { appendChunk(await pullChunk()); }
-                return { type: 'pack', data: JSON.parse(getBuffer()) };
+            // Pack file detection
+            if (buf.trimStart().startsWith('{"packVersion') || buf.trimStart().startsWith('{ "packVersion')) {
+                while (await readMore()) {}
+                return { type: 'pack', data: JSON.parse(buf) };
             }
 
             // Find "images":[
-            const imagesIdx = buffer.indexOf('"images":[');
+            while (!buf.includes('"images":[') && await readMore()) {}
+            const imagesIdx = buf.indexOf('"images":[');
             if (imagesIdx === -1) {
-                while (!done) { appendChunk(await pullChunk()); }
-                return { type: 'full', data: JSON.parse(getBuffer()) };
+                while (await readMore()) {}
+                return { type: 'full', data: JSON.parse(buf) };
             }
 
-            await db.clear();
+            // DON'T clear DB yet - only clear after we know we can parse the file
+            // Collect images into a temp array first, flush in batches to a temp IDB
+            const tempImages = [];
 
             // Skip to after "images":[
-            setBuffer(buffer.slice(imagesIdx + '"images":['.length));
+            buf = buf.slice(imagesIdx + '"images":['.length);
 
             showNotify('Importing...', { message: 'Reading images from file...', type: 'info', duration: 0 });
 
             let endOfImages = false;
 
             while (!endOfImages) {
-                buffer = getBuffer();
+                // Trim leading whitespace/commas
+                const trimmed = buf.replace(/^[\s,]+/, '');
+                buf = trimmed;
 
-                // Skip whitespace and commas at start
-                let i = 0;
-                while (i < buffer.length && ' ,\n\r\t'.includes(buffer[i])) i++;
-                if (i > 0) { buffer = buffer.slice(i); setBuffer(buffer); }
-
-                if (buffer.length === 0) {
-                    if (done) break;
-                    appendChunk(await pullChunk());
+                // Need more data?
+                if (buf.length === 0 || (buf[0] !== ']' && buf[0] !== '{')) {
+                    if (!await readMore()) break;
                     continue;
                 }
 
-                // End of images array
-                if (buffer[0] === ']') {
-                    setBuffer(buffer.slice(1));
+                if (buf[0] === ']') {
                     endOfImages = true;
+                    buf = buf.slice(1);
                     break;
                 }
 
-                if (buffer[0] !== '{') {
-                    if (done) break;
-                    appendChunk(await pullChunk());
+                // Scan for end of JSON object
+                let depth = 0, inStr = false, esc = false, endPos = -1;
+                for (let j = 0; j < buf.length; j++) {
+                    const c = buf[j];
+                    if (esc) { esc = false; continue; }
+                    if (inStr) {
+                        if (c === '\\') esc = true;
+                        else if (c === '"') inStr = false;
+                        continue;
+                    }
+                    if (c === '"') { inStr = true; continue; }
+                    if (c === '{') depth++;
+                    else if (c === '}' && --depth === 0) { endPos = j; break; }
+                }
+
+                if (endPos === -1) {
+                    // Object not complete yet - need more data
+                    if (!await readMore()) {
+                        console.error('[Import] Incomplete object at end of file, buf length:', buf.length);
+                        break;
+                    }
                     continue;
                 }
 
-                // Find matching closing brace for the object
-                let depth = 0, inStr = false, esc = false, found = false;
-                for (let j = 0; j < buffer.length; j++) {
-                    const c = buffer[j];
-                    if (esc) { esc = false; continue; }
-                    if (c === '\\' && inStr) { esc = true; continue; }
-                    if (c === '"') { inStr = !inStr; continue; }
-                    if (inStr) continue;
-                    if (c === '{') depth++;
-                    else if (c === '}') {
-                        depth--;
-                        if (depth === 0) {
-                            const objStr = buffer.slice(0, j + 1);
-                            setBuffer(buffer.slice(j + 1));
-                            const image = JSON.parse(objStr);
-                            if (!image.packId) image.packId = null;
-                            await db.storage.saveImage(image);
-                            imageCount++;
-                            if (imageCount % 20 === 0) {
-                                showNotify('Importing...', { message: `${imageCount} images imported...`, type: 'info', duration: 0 });
-                                await new Promise(r => setTimeout(r, 0));
-                            }
-                            found = true;
-                            break;
-                        }
-                    }
+                // Extract and parse this one image
+                const objStr = buf.slice(0, endPos + 1);
+                buf = buf.slice(endPos + 1);
+                try {
+                    const image = JSON.parse(objStr);
+                    if (!image.packId) image.packId = null;
+                    tempImages.push(image);
+                } catch (parseErr) {
+                    console.error('[Import] Failed to parse image', imageCount, ':', parseErr.message);
+                    continue;
                 }
 
-                if (!found) {
-                    // Object spans beyond current buffer, need more data
-                    if (done) {
-                        console.error('[Import] Incomplete object at end of file');
-                        break;
+                imageCount++;
+                if (imageCount % 10 === 0) {
+                    showNotify('Importing...', { message: `${imageCount} images read...`, type: 'info', duration: 0 });
+                    await new Promise(r => setTimeout(r, 0));
+                    // Flush temp images to avoid holding too many in memory
+                    if (tempImages.length >= 10) {
+                        // Lazy clear - only on first flush
+                        if (imageCount === tempImages.length) {
+                            await db.clear();
+                        }
+                        for (const img of tempImages) {
+                            await db.storage.saveImage(img);
+                        }
+                        tempImages.length = 0;
                     }
-                    appendChunk(await pullChunk());
                 }
             }
 
-            // Parse remaining for "packs" - this should be small
-            while (!done) appendChunk(await pullChunk());
-            buffer = getBuffer();
-            const packsMatch = buffer.match(/"packs"\s*:\s*/);
+            // If we collected images but never flushed (< 10 total or remainder)
+            if (tempImages.length > 0) {
+                if (imageCount === tempImages.length) {
+                    // Never flushed yet = first batch, clear now
+                    await db.clear();
+                }
+                for (const img of tempImages) {
+                    await db.storage.saveImage(img);
+                }
+                tempImages.length = 0;
+            }
+
+            // Parse packs from the END of the file (small section, read last 1MB max)
+            const packsSliceStart = Math.max(0, file.size - 1024 * 1024);
+            const tailText = await file.slice(packsSliceStart, file.size).text();
+            const packsMatch = tailText.match(/"packs"\s*:\s*\[/);
             if (packsMatch) {
-                const packsStart = packsMatch.index + packsMatch[0].length;
-                const packsStr = buffer.slice(packsStart).replace(/\}\s*$/, '');
+                const packsStart = packsMatch.index + packsMatch[0].length - 1; // include the [
+                let packsStr = tailText.slice(packsStart);
+                // Remove trailing }
+                packsStr = packsStr.replace(/\}\s*$/, '');
                 try {
                     const packsData = JSON.parse(packsStr);
                     for (const pack of packsData) {
                         await db.storage.savePack(pack);
                     }
                 } catch (e) {
-                    console.warn('[Import] Could not parse packs section:', e);
+                    console.warn('[Import] Could not parse packs section:', e.message);
                 }
             }
 
