@@ -6159,7 +6159,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             a.href = url;
             a.download = `facemash-export-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
             showNotify('Data exported successfully!', { type: 'success' });
         }
 
@@ -6177,6 +6177,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             try {
                 const text = await file.text();
+                console.log('[Import] File size:', file.size, 'bytes, text length:', text.length, 'last 20 chars:', JSON.stringify(text.slice(-20)));
                 const data = JSON.parse(text);
 
                 // Detect pack files
@@ -7009,7 +7010,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const slug = pack.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
             a.download = `pack-${slug}-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
 
         async function removePackConfirm(packId, packName) {
