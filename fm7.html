@@ -6154,12 +6154,38 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
         async function exportData() {
             const blob = await db.exportDataAsBlob();
+            // Verify the blob ends with valid JSON before downloading
+            const tail = await blob.slice(-1).text();
+            if (tail !== '}') {
+                console.error('[Export] Blob appears truncated. Last char:', JSON.stringify(tail), 'Blob size:', blob.size);
+                await showNotify('Export failed', { message: 'Generated data appears corrupt. Try again.', type: 'error' });
+                return;
+            }
+            console.log('[Export] Blob verified OK, size:', blob.size);
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `facemash-export-${new Date().toISOString().split('T')[0]}.json`;
+            // Use File System Access API for large files if available, else fallback
+            if (blob.size > 50 * 1024 * 1024 && window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: a.download,
+                        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    URL.revokeObjectURL(url);
+                    showNotify('Data exported successfully!', { type: 'success' });
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') { URL.revokeObjectURL(url); return; }
+                    console.warn('[Export] File System Access failed, falling back:', err);
+                }
+            }
             a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            setTimeout(() => URL.revokeObjectURL(url), 120000);
             showNotify('Data exported successfully!', { type: 'success' });
         }
 
@@ -6176,8 +6202,16 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (!file) return;
 
             try {
-                const text = await file.text();
-                console.log('[Import] File size:', file.size, 'bytes, text length:', text.length, 'last 20 chars:', JSON.stringify(text.slice(-20)));
+                const text = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                });
+                console.log('[Import] File size:', file.size, 'bytes, text length:', text.length, 'last char:', JSON.stringify(text.slice(-1)));
+                if (!text.endsWith('}') && !text.endsWith('}\n') && !text.endsWith('}\r\n')) {
+                    throw new Error('File appears truncated (size: ' + file.size + ', last chars: ' + JSON.stringify(text.slice(-20)) + '). Try re-exporting.');
+                }
                 const data = JSON.parse(text);
 
                 // Detect pack files
