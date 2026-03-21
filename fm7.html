@@ -2614,6 +2614,75 @@
             cursor: pointer; margin-top: 16px; font-family: inherit;
         }
         .tier-export-btn:hover { filter: brightness(1.15); }
+
+        /* === FACE SCAN / CHARACTER RECOGNITION === */
+        .face-scan-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5,5,15,0.94); backdrop-filter: blur(12px);
+            z-index: 4000; display: flex; justify-content: center; align-items: center;
+            animation: packLoaderFadeIn 0.3s ease-out;
+        }
+        .face-scan-modal {
+            width: 94%; max-width: 680px; max-height: 85vh;
+            background: rgba(20,18,35,0.97); border-radius: 20px; padding: 24px;
+            border: 2px solid rgba(138,43,226,0.45);
+            box-shadow: 0 8px 40px rgba(138,43,226,0.35);
+            overflow-y: auto; position: relative;
+        }
+        .face-scan-modal h3 { color: #bb86fc; text-align: center; margin: 0 0 6px; }
+        .face-scan-modal .fs-subtitle { color: rgba(177,156,217,0.7); text-align: center; font-size: 0.85em; margin: 0 0 16px; }
+        .face-scan-progress {
+            background: rgba(138,43,226,0.12); border-radius: 8px; height: 8px;
+            margin: 12px 0; overflow: hidden;
+        }
+        .face-scan-progress-fill {
+            height: 100%; background: linear-gradient(90deg, #5f3dc4, #bb86fc);
+            border-radius: 8px; transition: width 0.3s;
+        }
+        .face-match-card {
+            display: flex; align-items: center; gap: 14px; padding: 10px;
+            background: rgba(138,43,226,0.08); border-radius: 12px;
+            border: 1px solid rgba(138,43,226,0.2); margin-bottom: 8px;
+            transition: border-color 0.2s;
+        }
+        .face-match-card:hover { border-color: rgba(138,43,226,0.5); }
+        .face-match-card img {
+            width: 64px; height: 64px; border-radius: 10px;
+            object-fit: cover; flex-shrink: 0;
+        }
+        .face-match-info { flex: 1; font-size: 0.85em; }
+        .face-match-confidence {
+            display: inline-block; padding: 2px 10px; border-radius: 10px;
+            font-size: 0.78em; font-weight: 700;
+        }
+        .face-match-confidence.high { background: rgba(76,175,80,0.2); color: #66bb6a; }
+        .face-match-confidence.medium { background: rgba(255,193,7,0.2); color: #ffd54f; }
+        .face-match-confidence.low { background: rgba(255,107,157,0.15); color: #ff6b9d; }
+        .face-match-actions { display: flex; gap: 6px; }
+        .face-match-actions button {
+            padding: 5px 14px; border-radius: 10px; font-size: 0.8em;
+            font-weight: 600; cursor: pointer; font-family: inherit; border: none;
+        }
+        .fs-accept-btn { background: rgba(76,175,80,0.2); color: #66bb6a; }
+        .fs-accept-btn:hover { background: rgba(76,175,80,0.35); }
+        .fs-reject-btn { background: rgba(255,107,157,0.15); color: #ff6b9d; }
+        .fs-reject-btn:hover { background: rgba(255,107,157,0.3); }
+        .fs-accept-all-btn {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+            color: #fff; border: none; border-radius: 12px; padding: 8px 20px;
+            font-size: 0.85em; font-weight: 700; cursor: pointer; font-family: inherit;
+            margin-right: 8px;
+        }
+        .fs-close-btn {
+            background: rgba(138,43,226,0.2); color: #b19cd9; border: none;
+            border-radius: 12px; padding: 8px 20px; font-size: 0.85em;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .face-scan-badge {
+            display: inline-block; background: rgba(138,43,226,0.2);
+            color: #bb86fc; font-size: 0.7em; padding: 1px 7px;
+            border-radius: 8px; margin-left: 4px; font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -2891,6 +2960,8 @@
             <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Tags <span style="font-size:0.5em; opacity:0.5;">タグ一覧</span>
+                    <button id="faceScanToggleBtn" onclick="toggleFaceScan()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">🔍 Face Scan: OFF</button>
+                    <button onclick="runFullFaceScan()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">🔄 Full Scan</button>
                 </h2>
                 <div style="max-width:400px;margin:0 auto 20px;position:relative;">
                     <input type="text" id="tagsViewSearch" placeholder="Search tags..." autocomplete="off" style="width:100%;padding:10px 14px;border-radius:12px;border:1px solid rgba(138,43,226,0.4);background:rgba(20,20,30,0.8);color:#fff;font-size:0.95em;font-family:inherit;outline:none;box-sizing:border-box;">
@@ -4358,6 +4429,195 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             });
         }
 
+        // ========== CHARACTER DESCRIPTOR ENGINE (for @Person tagging) ==========
+        // Computes a multi-feature descriptor for anime character recognition:
+        // - HSL color histogram (captures distinctive hair/eye/outfit colors)
+        // - Spatial color distribution (where colors appear in image quadrants)
+        // - Dominant color palette (top 5 most frequent hue clusters)
+
+        function computeCharacterDescriptor(dataUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const SIZE = 32; // 32x32 = 1024 pixels, fast but rich enough
+                    const canvas = document.createElement('canvas');
+                    canvas.width = SIZE; canvas.height = SIZE;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, SIZE, SIZE);
+                    const pixels = ctx.getImageData(0, 0, SIZE, SIZE).data;
+
+                    // HSL histogram: 12 hue bins x 3 saturation bands x 2 lightness bands = 72 bins
+                    const HUE_BINS = 12, SAT_BANDS = 3, LUM_BANDS = 2;
+                    const hslHist = new Float32Array(HUE_BINS * SAT_BANDS * LUM_BANDS);
+                    // Quadrant color profiles (4 quadrants x 12 hue bins)
+                    const quadHue = [new Float32Array(HUE_BINS), new Float32Array(HUE_BINS), new Float32Array(HUE_BINS), new Float32Array(HUE_BINS)];
+                    // Track dominant colors
+                    const hueCounts = new Float32Array(HUE_BINS);
+                    let totalChromatic = 0;
+
+                    for (let y = 0; y < SIZE; y++) {
+                        for (let x = 0; x < SIZE; x++) {
+                            const i = (y * SIZE + x) * 4;
+                            const r = pixels[i] / 255, g = pixels[i+1] / 255, b = pixels[i+2] / 255;
+                            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                            const l = (max + min) / 2;
+                            let h = 0, s = 0;
+                            if (max !== min) {
+                                const d = max - min;
+                                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                                if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+                                else if (max === g) h = ((b - r) / d + 2) / 6;
+                                else h = ((r - g) / d + 4) / 6;
+                            }
+                            const hBin = Math.min(HUE_BINS - 1, (h * HUE_BINS) | 0);
+                            const sBin = s < 0.2 ? 0 : s < 0.6 ? 1 : 2;
+                            const lBin = l < 0.5 ? 0 : 1;
+
+                            hslHist[hBin * SAT_BANDS * LUM_BANDS + sBin * LUM_BANDS + lBin]++;
+
+                            // Quadrant (0=TL, 1=TR, 2=BL, 3=BR)
+                            const qx = x < SIZE / 2 ? 0 : 1;
+                            const qy = y < SIZE / 2 ? 0 : 1;
+                            const q = qy * 2 + qx;
+                            quadHue[q][hBin]++;
+
+                            if (s > 0.15) { hueCounts[hBin]++; totalChromatic++; }
+                        }
+                    }
+
+                    // Normalize histograms
+                    const totalPx = SIZE * SIZE;
+                    for (let i = 0; i < hslHist.length; i++) hslHist[i] /= totalPx;
+                    for (let q = 0; q < 4; q++)
+                        for (let i = 0; i < HUE_BINS; i++) quadHue[q][i] /= (totalPx / 4);
+
+                    // Top 5 dominant hues (sorted by frequency)
+                    const dominantHues = Array.from(hueCounts)
+                        .map((c, i) => ({ bin: i, pct: totalChromatic ? c / totalChromatic : 0 }))
+                        .sort((a, b) => b.pct - a.pct)
+                        .slice(0, 5)
+                        .map(d => ({ bin: d.bin, pct: Math.round(d.pct * 1000) / 1000 }));
+
+                    resolve({
+                        hslHist: Array.from(hslHist),
+                        quadHue: quadHue.map(q => Array.from(q)),
+                        dominantHues,
+                        version: 1
+                    });
+                };
+                img.onerror = () => resolve(null);
+                img.src = dataUrl;
+            });
+        }
+
+        function compareDescriptors(d1, d2) {
+            if (!d1 || !d2) return 0;
+
+            // 1. HSL histogram similarity (cosine similarity) — weight 0.45
+            let dot = 0, mag1 = 0, mag2 = 0;
+            for (let i = 0; i < d1.hslHist.length; i++) {
+                dot += d1.hslHist[i] * d2.hslHist[i];
+                mag1 += d1.hslHist[i] * d1.hslHist[i];
+                mag2 += d2.hslHist[i] * d2.hslHist[i];
+            }
+            const hslSim = (mag1 && mag2) ? dot / (Math.sqrt(mag1) * Math.sqrt(mag2)) : 0;
+
+            // 2. Quadrant similarity (avg cosine across 4 quadrants) — weight 0.30
+            let quadTotal = 0;
+            for (let q = 0; q < 4; q++) {
+                let qd = 0, qm1 = 0, qm2 = 0;
+                for (let i = 0; i < d1.quadHue[q].length; i++) {
+                    qd += d1.quadHue[q][i] * d2.quadHue[q][i];
+                    qm1 += d1.quadHue[q][i] * d1.quadHue[q][i];
+                    qm2 += d2.quadHue[q][i] * d2.quadHue[q][i];
+                }
+                quadTotal += (qm1 && qm2) ? qd / (Math.sqrt(qm1) * Math.sqrt(qm2)) : 0;
+            }
+            const quadSim = quadTotal / 4;
+
+            // 3. Dominant hue overlap — weight 0.25
+            // Compare top hue bins: intersection of top-5 bins weighted by frequency
+            let hueOverlap = 0;
+            for (const h1 of d1.dominantHues) {
+                const match = d2.dominantHues.find(h2 => h2.bin === h1.bin);
+                if (match) hueOverlap += Math.min(h1.pct, match.pct);
+            }
+            const hueSim = Math.min(1, hueOverlap * 2); // scale up, max 1
+
+            return hslSim * 0.45 + quadSim * 0.30 + hueSim * 0.25;
+        }
+
+        // High threshold to avoid false positives with anime images
+        const FACE_MATCH_HIGH = 0.82;   // "High confidence" — likely same character
+        const FACE_MATCH_MEDIUM = 0.72; // "Medium confidence" — probably same character
+        const FACE_MATCH_MIN = 0.65;    // Below this: not suggested at all
+
+        // Descriptor cache: { imageId: descriptor }
+        const _descriptorCache = {};
+
+        async function getOrComputeDescriptor(imageId) {
+            if (_descriptorCache[imageId]) return _descriptorCache[imageId];
+            const data = await db.getImageData(imageId);
+            if (!data) return null;
+            const desc = await computeCharacterDescriptor(data);
+            if (desc) _descriptorCache[imageId] = desc;
+            return desc;
+        }
+
+        async function scanDatabaseForMatches(referenceImageId, tag, progressCallback) {
+            const refDesc = await getOrComputeDescriptor(referenceImageId);
+            if (!refDesc) return [];
+
+            // Also gather descriptors from ALL images already tagged with this @tag
+            // to build a multi-reference profile (improves accuracy)
+            const taggedImages = db.images.filter(img =>
+                img.id !== referenceImageId && (img.tags || []).includes(tag)
+            );
+            const refDescriptors = [refDesc];
+            for (const img of taggedImages) {
+                const d = await getOrComputeDescriptor(img.id);
+                if (d) refDescriptors.push(d);
+            }
+
+            const candidates = db.images.filter(img =>
+                img.id !== referenceImageId &&
+                !(img.tags || []).includes(tag) &&
+                !img.excluded
+            );
+
+            const matches = [];
+            for (let i = 0; i < candidates.length; i++) {
+                const candidate = candidates[i];
+                const desc = await getOrComputeDescriptor(candidate.id);
+                if (!desc) continue;
+
+                // Compare against ALL reference descriptors, use best score
+                let bestScore = 0;
+                for (const rd of refDescriptors) {
+                    const score = compareDescriptors(rd, desc);
+                    if (score > bestScore) bestScore = score;
+                }
+
+                if (bestScore >= FACE_MATCH_MIN) {
+                    matches.push({
+                        imageId: candidate.id,
+                        score: bestScore,
+                        confidence: bestScore >= FACE_MATCH_HIGH ? 'high' :
+                                    bestScore >= FACE_MATCH_MEDIUM ? 'medium' : 'low'
+                    });
+                }
+
+                if (progressCallback && i % 5 === 0) {
+                    progressCallback(i + 1, candidates.length);
+                    await new Promise(r => setTimeout(r, 0)); // yield to UI
+                }
+            }
+
+            // Sort by score descending, cap at 50 results
+            matches.sort((a, b) => b.score - a.score);
+            return matches.slice(0, 50);
+        }
+
         function hammingDistance(a, b) {
             if (a.length !== b.length) return Infinity;
             let dist = 0;
@@ -4933,6 +5193,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (helpOv) helpOv.addEventListener('click', (e) => {
                 if (e.target === e.currentTarget) toggleHelpOverlay();
             });
+            // Init face scan toggle label
+            const fsBtn = document.getElementById('faceScanToggleBtn');
+            if (fsBtn) fsBtn.textContent = _faceScanEnabled ? '🔍 Face Scan: ON' : '🔍 Face Scan: OFF';
         });
 
         document.addEventListener('keydown', (e) => {
@@ -5261,6 +5524,177 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (undoBtn) undoBtn.style.display = 'none';
             showNotify('Battle undone ↩', { type: 'success' });
             renderBattle();
+        }
+
+        // ========== FACE SCAN UI ==========
+        let _faceScanEnabled = localStorage.getItem('faceScanEnabled') === 'true';
+
+        function toggleFaceScan() {
+            _faceScanEnabled = !_faceScanEnabled;
+            localStorage.setItem('faceScanEnabled', _faceScanEnabled);
+            const btn = document.getElementById('faceScanToggleBtn');
+            if (btn) btn.textContent = _faceScanEnabled ? '🔍 Face Scan: ON' : '🔍 Face Scan: OFF';
+            showNotify(_faceScanEnabled ? 'Character recognition enabled' : 'Character recognition disabled', { type: 'info' });
+        }
+
+        async function promptFaceScan(imageId, tag) {
+            if (!_faceScanEnabled) return;
+            if (!tag.startsWith('@')) return;
+
+            const doScan = await showConfirm(`Scan for "${tag}"?`, {
+                message: 'Search the database for other images of this character using visual similarity.',
+                confirmText: 'Scan Now', danger: false
+            });
+            if (!doScan) return;
+
+            await runFaceScan(imageId, tag);
+        }
+
+        async function runFaceScan(referenceImageId, tag) {
+            // Create scan overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'face-scan-overlay';
+            overlay.id = 'faceScanOverlay';
+            overlay.innerHTML = `
+                <div class="face-scan-modal">
+                    <h3>🔍 Scanning for "${tag}"</h3>
+                    <p class="fs-subtitle">Analyzing visual features across the database...</p>
+                    <div class="face-scan-progress"><div class="face-scan-progress-fill" id="fsScanProgress" style="width:0%"></div></div>
+                    <p id="fsScanStatus" style="color:#b19cd9;font-size:0.82em;text-align:center;">Starting scan...</p>
+                    <div id="fsScanResults"></div>
+                    <div id="fsScanActions" style="text-align:center;margin-top:14px;display:none;">
+                        <button class="fs-accept-all-btn" id="fsAcceptAllBtn">✓ Tag All High Confidence</button>
+                        <button class="fs-close-btn" onclick="closeFaceScan()">Done</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            // Run scan
+            const matches = await scanDatabaseForMatches(referenceImageId, tag, (current, total) => {
+                const pct = Math.round(current / total * 100);
+                const bar = document.getElementById('fsScanProgress');
+                const status = document.getElementById('fsScanStatus');
+                if (bar) bar.style.width = pct + '%';
+                if (status) status.textContent = `Scanning ${current}/${total} images...`;
+            });
+
+            const resultsEl = document.getElementById('fsScanResults');
+            const actionsEl = document.getElementById('fsScanActions');
+            const statusEl = document.getElementById('fsScanStatus');
+
+            if (matches.length === 0) {
+                if (statusEl) statusEl.textContent = 'No matching images found.';
+                if (actionsEl) { actionsEl.style.display = ''; actionsEl.innerHTML = '<button class="fs-close-btn" onclick="closeFaceScan()">Close</button>'; }
+                return;
+            }
+
+            if (statusEl) statusEl.textContent = `Found ${matches.length} potential match${matches.length > 1 ? 'es' : ''}:`;
+            if (actionsEl) actionsEl.style.display = '';
+
+            // Render match cards
+            let html = '';
+            for (const m of matches) {
+                const img = db.images.find(i => i.id === m.imageId);
+                const pct = Math.round(m.score * 100);
+                const tags = (img && img.tags) ? img.tags.join(', ') : '';
+                html += `
+                    <div class="face-match-card" id="fsMatch${m.imageId}" data-image-id="${m.imageId}">
+                        <img data-image-id="${m.imageId}" alt="">
+                        <div class="face-match-info">
+                            <div style="color:#e0d4f5;">★ ${img ? img.rating : '?'} ${tags ? '· <span style="opacity:0.6;">' + tags + '</span>' : ''}</div>
+                            <span class="face-match-confidence ${m.confidence}">${pct}% ${m.confidence}</span>
+                        </div>
+                        <div class="face-match-actions">
+                            <button class="fs-accept-btn" onclick="acceptFaceMatch(${m.imageId}, '${tag.replace(/'/g, "\\'")}')">✓ Tag</button>
+                            <button class="fs-reject-btn" onclick="rejectFaceMatch(${m.imageId})">✗</button>
+                        </div>
+                    </div>`;
+            }
+            if (resultsEl) resultsEl.innerHTML = html;
+
+            // Load thumbnails
+            for (const m of matches) {
+                const data = await db.getImageData(m.imageId);
+                const imgEl = resultsEl.querySelector(`#fsMatch${m.imageId} img`);
+                if (imgEl && data) imgEl.src = data;
+            }
+
+            // Accept all high confidence
+            const highMatches = matches.filter(m => m.confidence === 'high');
+            const acceptAllBtn = document.getElementById('fsAcceptAllBtn');
+            if (acceptAllBtn) {
+                if (highMatches.length === 0) {
+                    acceptAllBtn.style.display = 'none';
+                } else {
+                    acceptAllBtn.textContent = `✓ Tag All High Confidence (${highMatches.length})`;
+                    acceptAllBtn.onclick = async () => {
+                        for (const m of highMatches) await acceptFaceMatch(m.imageId, tag);
+                        showNotify(`Tagged ${highMatches.length} images with ${tag}`, { type: 'success' });
+                    };
+                }
+            }
+        }
+
+        async function acceptFaceMatch(imageId, tag) {
+            await addTagToImage(imageId, tag);
+            const card = document.getElementById(`fsMatch${imageId}`);
+            if (card) {
+                card.style.opacity = '0.4';
+                card.style.pointerEvents = 'none';
+                card.querySelector('.face-match-actions').innerHTML = '<span style="color:#66bb6a;font-size:0.85em;">✓ Tagged</span>';
+            }
+        }
+
+        function rejectFaceMatch(imageId) {
+            const card = document.getElementById(`fsMatch${imageId}`);
+            if (card) {
+                card.style.opacity = '0.3';
+                card.style.pointerEvents = 'none';
+                card.querySelector('.face-match-actions').innerHTML = '<span style="color:#ff6b9d;font-size:0.85em;">✗ Skipped</span>';
+            }
+        }
+
+        function closeFaceScan() {
+            const overlay = document.getElementById('faceScanOverlay');
+            if (overlay) overlay.remove();
+        }
+
+        // Full DB rescan: for all existing @tags, find untagged matches
+        async function runFullFaceScan() {
+            if (!_faceScanEnabled) {
+                showNotify('Enable character recognition first', { type: 'info' });
+                return;
+            }
+            const allTags = db.getAllTags().filter(t => t.startsWith('@'));
+            if (allTags.length === 0) {
+                showNotify('No @person tags found. Tag an image first!', { type: 'info' });
+                return;
+            }
+
+            const doScan = await showConfirm(`Full Character Scan`, {
+                message: `Scan all ${db.images.length} images against ${allTags.length} character tag(s). This may take a while.`,
+                confirmText: 'Start Scan', danger: false
+            });
+            if (!doScan) return;
+
+            // Collect a reference image for each @tag
+            let totalFound = 0;
+            for (const tag of allTags) {
+                const refImages = db.images.filter(img => (img.tags || []).includes(tag));
+                if (refImages.length === 0) continue;
+                // Use the first tagged image as reference
+                await runFaceScan(refImages[0].id, tag);
+                // Wait for user to close the modal before continuing to next tag
+                await new Promise(resolve => {
+                    const check = setInterval(() => {
+                        if (!document.getElementById('faceScanOverlay')) {
+                            clearInterval(check);
+                            resolve();
+                        }
+                    }, 300);
+                });
+            }
         }
 
         // ========== STATS DASHBOARD ==========
@@ -6025,6 +6459,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 input.value = '';
                 renderAc();
                 input.focus();
+                // Trigger face scan for @person tags
+                if (tag.startsWith('@')) {
+                    setTimeout(() => promptFaceScan(imageId, tag), 300);
+                }
             }
 
             input.addEventListener('input', renderAc);
@@ -6257,6 +6695,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 input.value = '';
                 renderAc();
                 input.focus();
+                // Trigger face scan for @person tags
+                if (tag.startsWith('@')) {
+                    setTimeout(() => promptFaceScan(img.id, tag), 300);
+                }
             }
 
             input.addEventListener('input', renderAc);
