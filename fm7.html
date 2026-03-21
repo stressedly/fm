@@ -6197,12 +6197,33 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('importModal').classList.remove('active');
         }
 
+        // Reusable: scan buffer for a complete JSON object starting at buf[0]='{'.
+        // Returns end position (inclusive) or -1 if incomplete.
+        function findJsonObjectEnd(buf) {
+            let depth = 0, inStr = false, esc = false;
+            for (let j = 0; j < buf.length; j++) {
+                const c = buf[j];
+                if (esc) { esc = false; continue; }
+                if (inStr) {
+                    if (c === '\\') esc = true;
+                    else if (c === '"') inStr = false;
+                    continue;
+                }
+                if (c === '"') { inStr = true; continue; }
+                if (c === '{') depth++;
+                else if (c === '}' && --depth === 0) return j;
+            }
+            return -1;
+        }
+
         // Stream-parse a large JSON export file using Blob.slice to avoid memory limits
         async function streamImportFile(file) {
             const CHUNK = 8 * 1024 * 1024; // 8MB slices
             let offset = 0;
             let buf = '';
             let imageCount = 0;
+            let packCount = 0;
+            let cleared = false;
 
             async function readMore() {
                 if (offset >= file.size) return false;
@@ -6230,123 +6251,100 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return { type: 'full', data: JSON.parse(buf) };
             }
 
-            // DON'T clear DB yet - only clear after we know we can parse the file
-            // Collect images into a temp array first, flush in batches to a temp IDB
-            const tempImages = [];
+            // Clear DB now — we've confirmed it's a valid export file
+            await db.clear();
+            cleared = true;
 
             // Skip to after "images":[
             buf = buf.slice(imagesIdx + '"images":['.length);
 
             showNotify('Importing...', { message: 'Reading images from file...', type: 'info', duration: 0 });
 
-            let endOfImages = false;
+            // === Parse images array ===
+            while (true) {
+                buf = buf.replace(/^[\s,]+/, '');
 
-            while (!endOfImages) {
-                // Trim leading whitespace/commas
-                const trimmed = buf.replace(/^[\s,]+/, '');
-                buf = trimmed;
-
-                // Need more data?
                 if (buf.length === 0 || (buf[0] !== ']' && buf[0] !== '{')) {
                     if (!await readMore()) break;
                     continue;
                 }
 
-                if (buf[0] === ']') {
-                    endOfImages = true;
-                    buf = buf.slice(1);
-                    break;
-                }
+                if (buf[0] === ']') { buf = buf.slice(1); break; }
 
-                // Scan for end of JSON object
-                let depth = 0, inStr = false, esc = false, endPos = -1;
-                for (let j = 0; j < buf.length; j++) {
-                    const c = buf[j];
-                    if (esc) { esc = false; continue; }
-                    if (inStr) {
-                        if (c === '\\') esc = true;
-                        else if (c === '"') inStr = false;
-                        continue;
-                    }
-                    if (c === '"') { inStr = true; continue; }
-                    if (c === '{') depth++;
-                    else if (c === '}' && --depth === 0) { endPos = j; break; }
-                }
-
+                const endPos = findJsonObjectEnd(buf);
                 if (endPos === -1) {
-                    // Object not complete yet - need more data
                     if (!await readMore()) {
-                        console.error('[Import] Incomplete object at end of file, buf length:', buf.length);
+                        console.error('[Import] Incomplete image object at EOF');
                         break;
                     }
                     continue;
                 }
 
-                // Extract and parse this one image
                 const objStr = buf.slice(0, endPos + 1);
                 buf = buf.slice(endPos + 1);
                 try {
                     const image = JSON.parse(objStr);
                     if (!image.packId) image.packId = null;
-                    tempImages.push(image);
+                    await db.storage.saveImage(image);
+                    imageCount++;
+                    if (imageCount % 20 === 0) {
+                        showNotify('Importing...', { message: `${imageCount} images imported...`, type: 'info', duration: 0 });
+                        await new Promise(r => setTimeout(r, 0));
+                    }
                 } catch (parseErr) {
                     console.error('[Import] Failed to parse image', imageCount, ':', parseErr.message);
-                    continue;
                 }
+            }
 
-                imageCount++;
-                if (imageCount % 10 === 0) {
-                    showNotify('Importing...', { message: `${imageCount} images read...`, type: 'info', duration: 0 });
-                    await new Promise(r => setTimeout(r, 0));
-                    // Flush temp images to avoid holding too many in memory
-                    if (tempImages.length >= 10) {
-                        // Lazy clear - only on first flush
-                        if (imageCount === tempImages.length) {
-                            await db.clear();
-                        }
-                        for (const img of tempImages) {
-                            await db.storage.saveImage(img);
-                        }
-                        tempImages.length = 0;
+            // === Parse packs array (same streaming approach) ===
+            // buf now contains everything after the images ']', e.g.: ,"packs":[...]}
+            // Keep reading until we find "packs":[
+            while (!buf.includes('"packs":[') && !buf.includes('"packs": [')) {
+                if (!await readMore()) break;
+            }
+            let packsIdx = buf.indexOf('"packs":[');
+            if (packsIdx === -1) packsIdx = buf.indexOf('"packs": [');
+            if (packsIdx !== -1) {
+                // Find the '[' after "packs":
+                const bracketIdx = buf.indexOf('[', packsIdx);
+                buf = buf.slice(bracketIdx + 1);
+
+                while (true) {
+                    buf = buf.replace(/^[\s,]+/, '');
+
+                    if (buf.length === 0 || (buf[0] !== ']' && buf[0] !== '{')) {
+                        if (!await readMore()) break;
+                        continue;
                     }
-                }
-            }
 
-            // If we collected images but never flushed (< 10 total or remainder)
-            if (tempImages.length > 0) {
-                if (imageCount === tempImages.length) {
-                    // Never flushed yet = first batch, clear now
-                    await db.clear();
-                }
-                for (const img of tempImages) {
-                    await db.storage.saveImage(img);
-                }
-                tempImages.length = 0;
-            }
+                    if (buf[0] === ']') break; // End of packs array
 
-            // Parse packs from the END of the file (small section, read last 1MB max)
-            const packsSliceStart = Math.max(0, file.size - 1024 * 1024);
-            const tailText = await file.slice(packsSliceStart, file.size).text();
-            const packsMatch = tailText.match(/"packs"\s*:\s*\[/);
-            if (packsMatch) {
-                const packsStart = packsMatch.index + packsMatch[0].length - 1; // include the [
-                let packsStr = tailText.slice(packsStart);
-                // Remove trailing }
-                packsStr = packsStr.replace(/\}\s*$/, '');
-                try {
-                    const packsData = JSON.parse(packsStr);
-                    for (const pack of packsData) {
+                    const endPos = findJsonObjectEnd(buf);
+                    if (endPos === -1) {
+                        if (!await readMore()) {
+                            console.error('[Import] Incomplete pack object at EOF');
+                            break;
+                        }
+                        continue;
+                    }
+
+                    const objStr = buf.slice(0, endPos + 1);
+                    buf = buf.slice(endPos + 1);
+                    try {
+                        const pack = JSON.parse(objStr);
                         await db.storage.savePack(pack);
+                        packCount++;
+                    } catch (parseErr) {
+                        console.error('[Import] Failed to parse pack:', parseErr.message);
                     }
-                } catch (e) {
-                    console.warn('[Import] Could not parse packs section:', e.message);
                 }
             }
 
+            console.log(`[Import] Done: ${imageCount} images, ${packCount} packs`);
             db.images = await db.storage.getAllImagesMeta();
             await db.loadPacks();
             await updateStorageInfo();
-            return { type: 'streamed', imageCount };
+            return { type: 'streamed', imageCount, packCount };
         }
 
         document.getElementById('importInput').addEventListener('change', async (e) => {
@@ -6371,7 +6369,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         }
                         showPacksView();
                     } else {
-                        await showNotify('Data imported successfully!', { message: `${result.imageCount} images imported`, type: 'success' });
+                        await showNotify('Data imported successfully!', { message: `${result.imageCount} images, ${result.packCount || 0} packs imported`, type: 'success' });
                         showBattleView();
                     }
                 } else {
