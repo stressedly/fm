@@ -2446,18 +2446,19 @@
         .multi-battle-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            max-width: 720px;
+            gap: 10px;
+            max-width: 680px;
             margin: 0 auto;
+            padding: 10px;
         }
         .multi-battle-card {
             position: relative;
-            border-radius: 16px;
+            border-radius: 14px;
             overflow: hidden;
             cursor: pointer;
-            background: rgba(30,30,50,0.8);
+            background: rgba(20,20,35,0.9);
             border: 2px solid rgba(138,43,226,0.25);
-            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
             aspect-ratio: 1;
         }
         .multi-battle-card:hover {
@@ -2499,20 +2500,15 @@
         }
 
         /* === STATS VIEW === */
-        .stats-view-container {
-            background: rgba(30,30,40,0.9);
-            border-radius: 15px;
-            padding: 25px;
-            border: 2px solid rgba(138,43,226,0.4);
-            backdrop-filter: blur(10px);
-        }
         .stats-section { margin-bottom: 28px; }
         .stats-section h3 {
-            color: #ff6b9d;
+            color: #bb86fc;
             font-size: 0.85em;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin: 0 0 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(138,43,226,0.2);
         }
         .stat-bar-row {
             display: flex;
@@ -2538,17 +2534,20 @@
         .stat-bar-count { color: #e0d4f5; min-width: 36px; font-size: 0.9em; }
         .stat-cards-row {
             display: flex; flex-wrap: wrap; gap: 12px;
+            justify-content: center;
         }
         .stat-card {
             background: rgba(138,43,226,0.1);
             border: 1px solid rgba(138,43,226,0.3);
             border-radius: 12px;
             padding: 14px 18px;
-            min-width: 120px;
+            min-width: 100px;
+            flex: 1;
+            max-width: 160px;
             text-align: center;
         }
         .stat-card-value { font-size: 1.6em; font-weight: 700; color: #bb86fc; }
-        .stat-card-label { font-size: 0.75em; color: #b19cd9; margin-top: 2px; }
+        .stat-card-label { font-size: 0.75em; color: #b19cd9; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
         .controversy-row, .streak-row {
             display: flex; align-items: center; gap: 12px;
             padding: 8px 0; border-bottom: 1px solid rgba(138,43,226,0.1);
@@ -2561,12 +2560,6 @@
         .controversy-bar { height: 6px; border-radius: 3px; margin-top: 4px; }
 
         /* === TIER LIST === */
-        .tier-list-container {
-            background: rgba(20,20,35,0.95);
-            border-radius: 15px;
-            padding: 20px;
-            border: 2px solid rgba(138,43,226,0.4);
-        }
         .tier-row {
             display: flex;
             align-items: stretch;
@@ -2608,12 +2601,13 @@
         .tier-images img.dragging { opacity: 0.4; cursor: grabbing; }
         .tier-images.drag-over { background: rgba(138,43,226,0.2); }
         .tier-export-btn {
-            background: linear-gradient(135deg, #8a2be2, #5f3dc4);
-            color: #fff; border: none; border-radius: 12px;
-            padding: 10px 24px; font-size: 0.9em; font-weight: 700;
-            cursor: pointer; margin-top: 16px; font-family: inherit;
+            background: rgba(138,43,226,0.15);
+            color: #b19cd9; border: 1px solid rgba(138,43,226,0.3); border-radius: 12px;
+            padding: 10px 24px; font-size: 0.85em; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+            transition: background 0.2s, color 0.2s;
         }
-        .tier-export-btn:hover { filter: brightness(1.15); }
+        .tier-export-btn:hover { background: rgba(138,43,226,0.3); color: #e0d4f5; }
 
         /* === FACE SCAN / CHARACTER RECOGNITION === */
         .face-scan-overlay {
@@ -2799,10 +2793,10 @@
                     ↩ Undo <span style="opacity:0.6;font-size:0.85em;">Ctrl+Z</span>
                 </button>
                 <button id="multiBattleToggle" onclick="toggleMultiBattle()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
-                    ⊞ Pick Best of 4
+                    Pick Best of 4 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">M</span>
                 </button>
                 <button onclick="showBattleView()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
-                    ⚔ 1v1 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">S</span>
+                    1v1 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">S</span>
                 </button>
             </div>
 
@@ -2929,11 +2923,11 @@
 
         <!-- Stats View -->
         <div id="statsView" class="hidden">
-            <div class="stats-view-container">
-                <h2 style="color:#bb86fc;text-align:center;margin:0 0 20px;">
-                    📊 Stats <span style="font-size:0.5em;opacity:0.5;">統計</span>
-                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings ↗</button>
-                    <button onclick="showTierListView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Tier List ↗</button>
+            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+                <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
+                    Stats <span style="font-size:0.5em; opacity:0.5;">統計</span>
+                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
+                    <button onclick="showTierListView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Tier List</button>
                 </h2>
                 <div id="statsContent"></div>
             </div>
@@ -2941,17 +2935,17 @@
 
         <!-- Tier List View -->
         <div id="tierListView" class="hidden">
-            <div class="tier-list-container">
-                <h2 style="color:#bb86fc;text-align:center;margin:0 0 16px;">
-                    🏆 Tier List <span style="font-size:0.5em;opacity:0.5;">ティアリスト</span>
-                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings ↗</button>
-                    <button onclick="showStatsView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Stats ↗</button>
+            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+                <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
+                    Tier List <span style="font-size:0.5em; opacity:0.5;">ティアリスト</span>
+                    <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
+                    <button onclick="showStatsView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Stats</button>
                 </h2>
-                <p style="color:#b19cd9;font-size:0.82em;text-align:center;margin:0 0 14px;">Drag images between tiers to adjust. Auto-generated from Elo ratings.</p>
+                <p style="color:#b19cd9;font-size:0.82em;text-align:center;margin:0 0 18px;opacity:0.8;">Drag images between tiers to adjust. Auto-generated from Elo ratings.</p>
                 <div id="tierListContent"></div>
-                <div style="text-align:center;">
-                    <button class="tier-export-btn" onclick="exportTierListPNG()">📷 Export as PNG</button>
-                    <button class="tier-export-btn" onclick="renderTierList()" style="margin-left:8px;background:rgba(138,43,226,0.3);">↺ Reset</button>
+                <div style="text-align:center;margin-top:18px;display:flex;justify-content:center;gap:10px;">
+                    <button class="tier-export-btn" onclick="exportTierListPNG()">Export as PNG</button>
+                    <button class="tier-export-btn" onclick="renderTierList()" style="background:rgba(138,43,226,0.3);">Reset</button>
                 </div>
             </div>
         </div>
@@ -5864,7 +5858,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const images = db.images.filter(img => !img.excluded);
             const content = document.getElementById('statsContent');
             if (images.length === 0) {
-                content.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No data yet — start battling! ⚔️</p>';
+                content.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No data yet -- start battling</p>';
                 return;
             }
 
@@ -5903,7 +5897,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     </div>
                 </div>
                 <div class="stats-section">
-                    <h3>📊 Rating Distribution</h3>
+                    <h3>Rating Distribution</h3>
                     ${hist.map((count, i) => {
                         const label = (minR + i * bucketSize) + '–' + (minR + (i + 1) * bucketSize - 1);
                         const pct = histMax ? Math.round(count / histMax * 100) : 0;
@@ -5916,7 +5910,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 </div>`;
 
             if (battled.length > 0) {
-                html += `<div class="stats-section"><h3>🎲 Most Controversial <span style="font-weight:400;opacity:0.6;">(closest to 50% win rate)</span></h3>`;
+                html += `<div class="stats-section"><h3>Most Controversial <span style="font-weight:400;opacity:0.6;">(closest to 50% win rate)</span></h3>`;
                 battled.forEach(img => {
                     const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
                     html += `<div class="controversy-row">
@@ -5934,7 +5928,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             if (lowestBattled.length > 0) {
-                html += `<div class="stats-section"><h3>😴 Under-Battled <span style="font-weight:400;opacity:0.6;">(fewest battles)</span></h3>`;
+                html += `<div class="stats-section"><h3>Under-Battled <span style="font-weight:400;opacity:0.6;">(fewest battles)</span></h3>`;
                 lowestBattled.forEach(img => {
                     html += `<div class="controversy-row">
                         <img data-image-id="${img.id}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;">
