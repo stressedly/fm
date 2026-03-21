@@ -4477,26 +4477,46 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             return true;
         }
 
-        async function downloadFaceAssets(progressCallback) {
-            const total = FACEAPI_ASSETS.length;
-            for (let i = 0; i < total; i++) {
-                const asset = FACEAPI_ASSETS[i];
-                if (progressCallback) progressCallback(`Downloading ${asset.key}...`, i, total);
-                // Check if already cached
-                const existing = await _faceAssetGet(asset.key);
-                if (existing) continue;
-                // Download
-                const resp = await fetch(asset.url);
-                if (!resp.ok) throw new Error(`Failed to download ${asset.key}: ${resp.status}`);
-                let data;
-                if (asset.type === 'binary') {
-                    data = await resp.arrayBuffer();
-                } else {
-                    data = await resp.text();
-                }
-                await _faceAssetPut(asset.key, data);
-            }
-            if (progressCallback) progressCallback('All AI assets downloaded ✓', total, total);
+        // Load face-api assets from a user-selected data.json file
+        function _pickAndLoadDataJson() {
+            return new Promise((resolve, reject) => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json,application/json';
+                input.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) { reject(new Error('No file selected')); return; }
+                    try {
+                        const text = await file.text();
+                        const bundle = JSON.parse(text);
+                        // Validate it has the expected keys
+                        const missing = FACEAPI_ASSETS.filter(a => !bundle[a.key]);
+                        if (missing.length > 0) {
+                            reject(new Error(`Invalid data.json — missing: ${missing.map(a => a.key).join(', ')}`));
+                            return;
+                        }
+                        // Store each asset into IndexedDB
+                        for (const asset of FACEAPI_ASSETS) {
+                            const entry = bundle[asset.key];
+                            let data;
+                            if (entry.type === 'binary') {
+                                // Decode base64 to ArrayBuffer
+                                const binary = atob(entry.data);
+                                const bytes = new Uint8Array(binary.length);
+                                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                                data = bytes.buffer;
+                            } else {
+                                data = entry.data;
+                            }
+                            await _faceAssetPut(asset.key, data);
+                        }
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                input.click();
+            });
         }
 
         async function deleteFaceAssets() {
@@ -5639,32 +5659,29 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 // Check if AI assets are downloaded
                 const hasAssets = await areFaceAssetsDownloaded();
                 if (!hasAssets) {
-                    const doDownload = confirm(
-                        '🧠 Face Recognition Setup\n\n' +
-                        'This feature requires a one-time download of AI models (~8 MB) from the internet.\n' +
-                        'After downloading, everything runs 100% offline from your browser storage.\n\n' +
-                        'Download now?'
+                    const doLoad = confirm(
+                        'Face Recognition Setup\n\n' +
+                        'This feature requires AI model data (~10 MB).\n' +
+                        'Please select the "data.json" file included in the app folder.\n\n' +
+                        'Load now?'
                     );
-                    if (!doDownload) {
+                    if (!doLoad) {
                         _faceScanEnabled = false;
                         localStorage.setItem('faceScanEnabled', 'false');
-                        if (btn) btn.textContent = '🔍 Face Scan: OFF';
+                        if (btn) btn.textContent = 'Face Scan: OFF';
                         showNotify('Face recognition cancelled', { type: 'info' });
                         return;
                     }
-                    showNotify('Downloading AI models...', { type: 'info' });
                     try {
-                        await downloadFaceAssets((msg, current, total) => {
-                            const pct = total > 0 ? Math.round(current / total * 100) : 0;
-                            showNotify(`${msg} (${pct}%)`, { type: 'info' });
-                        });
-                        showNotify('AI models downloaded ✓ — loading...', { type: 'success' });
+                        showNotify('Select data.json to load AI models...', { type: 'info' });
+                        await _pickAndLoadDataJson();
+                        showNotify('AI models loaded — initializing...', { type: 'success' });
                     } catch (err) {
-                        console.error('[FaceAPI] Download failed:', err);
-                        showNotify('Download failed — check your internet connection', { type: 'error' });
+                        console.error('[FaceAPI] Load failed:', err);
+                        showNotify(`Failed to load data.json — ${err.message}`, { type: 'error' });
                         _faceScanEnabled = false;
                         localStorage.setItem('faceScanEnabled', 'false');
-                        if (btn) btn.textContent = '🔍 Face Scan: OFF';
+                        if (btn) btn.textContent = 'Face Scan: OFF';
                         return;
                     }
                 }
