@@ -5826,7 +5826,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Load thumbnails
             for (const m of matches) {
                 const data = await db.getImageData(m.imageId);
-                const imgEl = resultsEl.querySelector(`#fsMatch${m.imageId} img`);
+                const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} img`);
                 if (imgEl && data) imgEl.src = data;
             }
 
