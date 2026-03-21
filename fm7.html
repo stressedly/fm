@@ -4450,20 +4450,33 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         let _faceapiLibLoaded = false;
 
         // ---- IndexedDB asset helpers ----
-        function _faceAssetGet(key) {
-            return new Promise((resolve) => {
-                if (!db.db) { resolve(null); return; }
+        async function _waitForDB(maxMs = 5000) {
+            if (db.db) return;
+            const start = Date.now();
+            while (!db.db && Date.now() - start < maxMs) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+            if (!db.db) throw new Error('DB not ready after ' + maxMs + 'ms');
+        }
+        async function _faceAssetGet(key) {
+            try {
+                await _waitForDB();
                 const tx = db.db.transaction(['faceapi_assets'], 'readonly');
                 const req = tx.objectStore('faceapi_assets').get(key);
-                req.onsuccess = () => resolve(req.result || null);
-                req.onerror = () => resolve(null);
-            });
+                return await new Promise((resolve) => {
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            } catch (e) {
+                console.warn('[FaceAPI] _faceAssetGet error:', e);
+                return null;
+            }
         }
-        function _faceAssetPut(key, data) {
+        async function _faceAssetPut(key, data) {
+            await _waitForDB();
+            const tx = db.db.transaction(['faceapi_assets'], 'readwrite');
+            tx.objectStore('faceapi_assets').put({ key, data });
             return new Promise((resolve, reject) => {
-                if (!db.db) { reject('DB not ready'); return; }
-                const tx = db.db.transaction(['faceapi_assets'], 'readwrite');
-                tx.objectStore('faceapi_assets').put({ key, data });
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error);
             });
