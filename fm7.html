@@ -4434,15 +4434,14 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         // Downloads AI models on first use, caches in IndexedDB, loads from cache thereafter.
         // Library: face-api.js (~1.3MB) | Models: ~7MB total (TinyFaceDetector + Landmarks + Recognition)
 
-        const FACEAPI_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api';
         const FACEAPI_ASSETS = [
-            { key: 'face-api.js', url: `${FACEAPI_CDN}/dist/face-api.js`, type: 'text' },
-            { key: 'tiny_face_detector_model-weights_manifest.json', url: `${FACEAPI_CDN}/model/tiny_face_detector_model-weights_manifest.json`, type: 'text' },
-            { key: 'tiny_face_detector_model.bin', url: `${FACEAPI_CDN}/model/tiny_face_detector_model.bin`, type: 'binary' },
-            { key: 'face_landmark_68_model-weights_manifest.json', url: `${FACEAPI_CDN}/model/face_landmark_68_model-weights_manifest.json`, type: 'text' },
-            { key: 'face_landmark_68_model.bin', url: `${FACEAPI_CDN}/model/face_landmark_68_model.bin`, type: 'binary' },
-            { key: 'face_recognition_model-weights_manifest.json', url: `${FACEAPI_CDN}/model/face_recognition_model-weights_manifest.json`, type: 'text' },
-            { key: 'face_recognition_model.bin', url: `${FACEAPI_CDN}/model/face_recognition_model.bin`, type: 'binary' },
+            { key: 'face-api.js', type: 'text' },
+            { key: 'tiny_face_detector_model-weights_manifest.json', type: 'text' },
+            { key: 'tiny_face_detector_model.bin', type: 'binary' },
+            { key: 'face_landmark_68_model-weights_manifest.json', type: 'text' },
+            { key: 'face_landmark_68_model.bin', type: 'binary' },
+            { key: 'face_recognition_model-weights_manifest.json', type: 'text' },
+            { key: 'face_recognition_model.bin', type: 'binary' },
         ];
 
         let _faceModelsLoaded = false;
@@ -4584,27 +4583,36 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             return typeof faceapi !== 'undefined';
         }
 
-        // ---- Intercept fetch for model files → serve from IndexedDB ----
-        function _installModelFetchInterceptor() {
-            const origFetch = window.fetch;
-            window.fetch = async function(url, opts) {
-                if (typeof url === 'string') {
-                    for (const asset of FACEAPI_ASSETS) {
-                        if (asset.key === 'face-api.js') continue; // not a model file
-                        if (url.endsWith('/' + asset.key) || url.endsWith(asset.key)) {
-                            const cached = await _faceAssetGet(asset.key);
-                            if (cached) {
-                                if (asset.type === 'binary') {
-                                    return new Response(cached.data, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
-                                } else {
-                                    return new Response(cached.data, { status: 200, headers: { 'content-type': 'application/json' } });
-                                }
-                            }
-                        }
+        // ---- Load a single model from IndexedDB (no network) ----
+        async function _loadModelFromCache(net, manifestKey, binKey, statusCallback, label) {
+            if (statusCallback) statusCallback(`Loading ${label}...`);
+            const manifestRec = await _faceAssetGet(manifestKey);
+            const binRec = await _faceAssetGet(binKey);
+            if (!manifestRec || !binRec) throw new Error(`Missing cached data for ${label}`);
+            const manifest = typeof manifestRec.data === 'string' ? JSON.parse(manifestRec.data) : manifestRec.data;
+            const weights = binRec.data instanceof ArrayBuffer ? binRec.data : binRec.data.buffer || binRec.data;
+            // Build weight map: manifest is an array of groups, each with weights [{name, shape, dtype, quantization}]
+            const weightMap = {};
+            let offset = 0;
+            for (const group of manifest) {
+                for (const w of group.weights) {
+                    const size = w.shape.reduce((a, b) => a * b, 1);
+                    const byteSize = (w.quantization && w.quantization.dtype === 'uint8') ? size : size * 4;
+                    const slice = weights.slice(offset, offset + byteSize);
+                    if (w.quantization && w.quantization.dtype === 'uint8') {
+                        const uint8 = new Uint8Array(slice);
+                        const float32 = new Float32Array(size);
+                        const scale = w.quantization.scale;
+                        const min = w.quantization.min;
+                        for (let i = 0; i < size; i++) float32[i] = uint8[i] * scale + min;
+                        weightMap[w.name] = faceapi.tf.tensor(float32, w.shape);
+                    } else {
+                        weightMap[w.name] = faceapi.tf.tensor(new Float32Array(slice), w.shape);
                     }
+                    offset += byteSize;
                 }
-                return origFetch.apply(this, arguments);
-            };
+            }
+            await net.loadFromWeightMap(weightMap);
         }
 
         // ---- Main entry: ensure library + models are ready ----
@@ -4626,18 +4634,27 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (statusCallback) statusCallback('Loading face-api.js library...');
                 const libOk = await _loadFaceApiLibrary();
                 if (!libOk) throw new Error('Library failed to load');
-                // 3. Install fetch interceptor so models load from IndexedDB
-                _installModelFetchInterceptor();
-                // 4. Load models (they'll be served from IndexedDB via interceptor)
-                const MODEL_URL = `${FACEAPI_CDN}/model/`; // URL pattern for faceapi to request
-                if (statusCallback) statusCallback('Loading face detection model...');
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                if (statusCallback) statusCallback('Loading face landmark model...');
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                if (statusCallback) statusCallback('Loading face recognition model...');
-                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                // 3. Load models directly from IndexedDB (no fetch/network needed)
+                await _loadModelFromCache(
+                    faceapi.nets.tinyFaceDetector,
+                    'tiny_face_detector_model-weights_manifest.json',
+                    'tiny_face_detector_model.bin',
+                    statusCallback, 'face detection model'
+                );
+                await _loadModelFromCache(
+                    faceapi.nets.faceLandmark68Net,
+                    'face_landmark_68_model-weights_manifest.json',
+                    'face_landmark_68_model.bin',
+                    statusCallback, 'face landmark model'
+                );
+                await _loadModelFromCache(
+                    faceapi.nets.faceRecognitionNet,
+                    'face_recognition_model-weights_manifest.json',
+                    'face_recognition_model.bin',
+                    statusCallback, 'face recognition model'
+                );
                 _faceModelsLoaded = true;
-                console.log('[FaceAPI] All models loaded from IndexedDB cache');
+                console.log('[FaceAPI] All models loaded from IndexedDB cache (offline)');
             } catch (err) {
                 console.error('[FaceAPI] Model loading failed:', err);
                 _faceModelsLoaded = false;
