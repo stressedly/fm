@@ -904,7 +904,7 @@
             inset: 0;
             background-size: cover;
             background-position: center;
-            filter: blur(40px) brightness(0.3) saturate(1.5);
+            filter: blur(20px) brightness(0.3) saturate(1.3);
             transform: scale(1.2);
             z-index: 0;
             transition: background-image 0.6s ease;
@@ -927,8 +927,8 @@
             justify-content: space-between;
             padding: 12px 20px;
             background: rgba(15, 12, 41, 0.45);
-            backdrop-filter: blur(20px) saturate(1.4);
-            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            backdrop-filter: blur(12px) saturate(1.2);
+            -webkit-backdrop-filter: blur(12px) saturate(1.2);
             border-bottom: 1px solid rgba(187, 134, 252, 0.15);
         }
 
@@ -958,8 +958,6 @@
 
         .slideshow-collapse-btn {
             background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.12);
             color: rgba(255, 255, 255, 0.8);
             padding: 6px 14px;
@@ -1007,8 +1005,8 @@
             gap: 20px;
             padding: 16px 20px;
             background: rgba(15, 12, 41, 0.5);
-            backdrop-filter: blur(20px) saturate(1.4);
-            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            backdrop-filter: blur(12px) saturate(1.2);
+            -webkit-backdrop-filter: blur(12px) saturate(1.2);
             border-top: 1px solid rgba(187, 134, 252, 0.15);
             transition: opacity 0.4s ease;
         }
@@ -2680,6 +2678,116 @@
             color: #bb86fc; font-size: 0.7em; padding: 1px 7px;
             border-radius: 8px; margin-left: 4px; font-weight: 600;
         }
+
+        /* === Background Import Queue === */
+        .import-queue {
+            position: fixed;
+            bottom: 18px;
+            left: 18px;
+            z-index: 4000;
+            width: 320px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .import-queue-card {
+            pointer-events: auto;
+            background: rgba(18, 16, 32, 0.96);
+            border: 1px solid rgba(138, 43, 226, 0.45);
+            border-radius: 14px;
+            padding: 14px 16px;
+            box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(138,43,226,0.15);
+            animation: iqSlideIn 0.35s ease-out;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .import-queue-card.done {
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+        .import-queue-card.has-issues {
+            border-color: rgba(255, 183, 77, 0.6);
+        }
+        .import-queue-card.removing {
+            opacity: 0;
+            transform: translateX(-40px);
+        }
+        @keyframes iqSlideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .iq-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .iq-title {
+            color: #e0d6f2;
+            font-size: 0.82em;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+        .iq-status {
+            color: rgba(177, 156, 217, 0.7);
+            font-size: 0.7em;
+            flex-shrink: 0;
+        }
+        .iq-bar-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(138, 43, 226, 0.15);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .iq-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #7c4dff, #bb86fc);
+            border-radius: 3px;
+            transition: width 0.25s ease;
+        }
+        .iq-bar-fill.done {
+            background: linear-gradient(90deg, #4caf50, #66bb6a);
+        }
+        .iq-bar-fill.has-issues {
+            background: linear-gradient(90deg, #ff9800, #ffb74d);
+        }
+        .iq-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            color: rgba(177, 156, 217, 0.6);
+            font-size: 0.68em;
+        }
+        .iq-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .iq-actions button {
+            flex: 1;
+            padding: 5px 0;
+            border-radius: 8px;
+            border: 1px solid rgba(138, 43, 226, 0.35);
+            background: rgba(138, 43, 226, 0.15);
+            color: #b19cd9;
+            font-size: 0.72em;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+        .iq-actions button:hover {
+            background: rgba(138, 43, 226, 0.3);
+        }
+        .iq-actions button.iq-primary {
+            background: rgba(138, 43, 226, 0.4);
+            color: #e0d6f2;
+            border-color: rgba(138, 43, 226, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -2903,7 +3011,7 @@
         </div>
 
         <div id="packsView" class="hidden">
-            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+            <div style="background: rgba(30, 30, 40, 0.95); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Packs <span style="font-size:0.5em; opacity:0.5;">パック管理</span>
                 </h2>
@@ -2926,7 +3034,7 @@
 
         <!-- Stats View -->
         <div id="statsView" class="hidden">
-            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+            <div style="background: rgba(30, 30, 40, 0.95); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Stats <span style="font-size:0.5em; opacity:0.5;">統計</span>
                     <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
@@ -2938,7 +3046,7 @@
 
         <!-- Tier List View -->
         <div id="tierListView" class="hidden">
-            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+            <div style="background: rgba(30, 30, 40, 0.95); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Tier List <span style="font-size:0.5em; opacity:0.5;">ティアリスト</span>
                     <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
@@ -2954,7 +3062,7 @@
         </div>
 
         <div id="tagsView" class="hidden">
-            <div style="background: rgba(30, 30, 40, 0.9); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4); backdrop-filter: blur(10px);">
+            <div style="background: rgba(30, 30, 40, 0.95); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Tags <span style="font-size:0.5em; opacity:0.5;">タグ一覧</span>
                     <button id="faceScanToggleBtn" onclick="toggleFaceScan()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Face Scan: OFF</button>
@@ -4107,8 +4215,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 winner.wins = (winner.wins || 0) + 1;
                 loser.losses = (loser.losses || 0) + 1;
 
-                await this._saveImageUpdate(winner);
-                await this._saveImageUpdate(loser);
+                await Promise.all([this._saveImageUpdate(winner), this._saveImageUpdate(loser)]);
                 this._invalidateActiveCache();
 
                 // Persist history entry
@@ -4162,6 +4269,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             _invalidateActiveCache() {
                 this._activeCacheDirty = true;
                 this._leaderboardCacheDirty = true;
+                if (typeof _invalidateTagCache === 'function') _invalidateTagCache();
             }
 
             _getActiveImages() {
@@ -5162,75 +5270,229 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             });
         }
 
-        async function handleFiles(files) {
-            let successCount = 0;
-            let failCount = 0;
-            let skippedCount = 0;
-            const totalFiles = files.length;
+        // === Background Import Queue ===
+        const importQueue = (() => {
+            let _container = null;
+            function container() { return _container || (_container = document.getElementById('importQueue')); }
+            let jobId = 0;
+            const jobs = new Map();
 
-            if (totalFiles > 0) {
-                showPackLoader('', totalFiles, 'Processing Files...');
+            function _createCard(id, label, total) {
+                const card = document.createElement('div');
+                card.className = 'import-queue-card';
+                card.id = 'iq-' + id;
+                card.innerHTML = `
+                    <div class="iq-header">
+                        <div class="iq-title">${_esc(label)}</div>
+                        <div class="iq-status" data-ref="status">Preparing…</div>
+                    </div>
+                    <div class="iq-bar-track"><div class="iq-bar-fill" data-ref="bar"></div></div>
+                    <div class="iq-detail">
+                        <span data-ref="detail">0 / ${total}</span>
+                        <span data-ref="phase">Reading files</span>
+                    </div>
+                `;
+                container().appendChild(card);
+                return card;
             }
 
-            // First pass: read all media files with hashes
-            const processed = [];
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!isMediaFile(file)) {
-                    failCount++;
-                    updatePackLoader(processed.length + failCount, null);
-                    continue;
+            function _ref(card, name) { return card.querySelector(`[data-ref="${name}"]`); }
+            function _esc(s) { const d = document.createElement('span'); d.textContent = s; return d.innerHTML; }
+
+            function _updateCard(card, current, total, phase) {
+                const pct = Math.round((current / total) * 100);
+                _ref(card, 'bar').style.width = pct + '%';
+                _ref(card, 'detail').textContent = `${current} / ${total}`;
+                _ref(card, 'status').textContent = pct + '%';
+                if (phase) _ref(card, 'phase').textContent = phase;
+            }
+
+            function _finishCard(card, successCount, failCount, skippedCount, hasDuplicates) {
+                const bar = _ref(card, 'bar');
+                bar.style.width = '100%';
+                if (hasDuplicates) {
+                    card.classList.add('has-issues');
+                    bar.classList.add('has-issues');
+                    _ref(card, 'status').textContent = 'Review';
+                    _ref(card, 'phase').textContent = 'Duplicates found';
+                } else {
+                    card.classList.add('done');
+                    bar.classList.add('done');
+                    _ref(card, 'status').textContent = 'Done';
+                    let summary = `${successCount} added`;
+                    if (failCount > 0) summary += `, ${failCount} failed`;
+                    if (skippedCount > 0) summary += `, ${skippedCount} skipped`;
+                    _ref(card, 'phase').textContent = summary;
+                }
+            }
+
+            function _addDismiss(card, id) {
+                const actions = document.createElement('div');
+                actions.className = 'iq-actions';
+                actions.innerHTML = `<button class="iq-primary" onclick="importQueue.dismiss(${id})">Dismiss</button>`;
+                card.appendChild(actions);
+            }
+
+            function _addDuplicateActions(card, id) {
+                const actions = document.createElement('div');
+                actions.className = 'iq-actions';
+                actions.innerHTML = `
+                    <button onclick="importQueue.dismiss(${id})">Dismiss</button>
+                    <button class="iq-primary" onclick="importQueue.reviewDuplicates(${id})">Review</button>
+                `;
+                card.appendChild(actions);
+            }
+
+            function dismiss(id) {
+                const card = document.getElementById('iq-' + id);
+                if (!card) return;
+                card.classList.add('removing');
+                setTimeout(() => card.remove(), 300);
+                jobs.delete(id);
+            }
+
+            async function reviewDuplicates(id) {
+                const job = jobs.get(id);
+                if (!job || !job.duplicates) return;
+                const card = document.getElementById('iq-' + id);
+
+                const imagesToAdd = await showDuplicateReviewModal(job.duplicates, job.processed);
+                const skippedCount = job.processed.length - imagesToAdd.length;
+
+                // Save kept images
+                let successCount = 0, failCount = 0;
+                for (const img of imagesToAdd) {
+                    try {
+                        const success = await db.addImage(img.dataUrl, img.width, img.height, job.packId || undefined, undefined, img.sha256, img.phash, img.type);
+                        if (success) successCount++;
+                        else failCount++;
+                    } catch (e) { failCount++; }
+                    await new Promise(r => setTimeout(r, 0));
                 }
 
-                try {
-                    const result = await readMediaFile(file);
-                    result.fileName = file.name;
-                    // Compute hashes for duplicate detection (only for images)
-                    if (result.type !== 'video') {
-                        result.sha256 = await computeImageHash(result.dataUrl);
-                        result.phash = await computePerceptualHash(result.dataUrl);
-                    } else {
-                        result.sha256 = null;
-                        result.phash = null;
+                job.successCount += successCount;
+                job.failCount += failCount;
+                job.skippedCount += skippedCount;
+                job.duplicates = null;
+
+                if (card) {
+                    card.classList.remove('has-issues');
+                    const oldActions = card.querySelector('.iq-actions');
+                    if (oldActions) oldActions.remove();
+                    _finishCard(card, job.successCount, job.failCount, job.skippedCount, false);
+                    _addDismiss(card, id);
+                    // Auto-dismiss after 6s
+                    setTimeout(() => dismiss(id), 6000);
+                }
+                if (successCount > 0) {
+                    if (currentView === 'battle') renderBattle();
+                    else if (currentView === 'leaderboard') renderLeaderboard();
+                }
+                if (job.onComplete) {
+                    try { await job.onComplete({ successCount: job.successCount, failCount: job.failCount, skippedCount: job.skippedCount }); } catch(e) { console.error('onComplete error:', e); }
+                }
+            }
+
+            async function enqueue(files, { packId = null, label = null, onComplete = null } = {}) {
+                const id = ++jobId;
+                const totalFiles = files.length;
+                const displayLabel = label || (totalFiles === 1 ? files[0].name : `${totalFiles} files`);
+                const card = _createCard(id, displayLabel, totalFiles);
+                const job = { id, packId, successCount: 0, failCount: 0, skippedCount: 0, duplicates: null, processed: null, onComplete };
+                jobs.set(id, job);
+
+                // Phase 1: Read & hash files (non-blocking via yields)
+                const processed = [];
+                let readFail = 0;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (!isMediaFile(file)) {
+                        readFail++;
+                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                        continue;
                     }
-                    processed.push(result);
-                    updatePackLoader(processed.length + failCount, result.type !== 'video' ? result.dataUrl : null);
-                } catch (e) {
-                    console.error('Error processing file:', e);
-                    failCount++;
-                    updatePackLoader(processed.length + failCount, null);
+                    try {
+                        const result = await readMediaFile(file);
+                        result.fileName = file.name;
+                        if (result.type !== 'video') {
+                            result.sha256 = await computeImageHash(result.dataUrl);
+                            result.phash = await computePerceptualHash(result.dataUrl);
+                        } else {
+                            result.sha256 = null;
+                            result.phash = null;
+                        }
+                        processed.push(result);
+                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                    } catch (e) {
+                        console.error('Error processing file:', e);
+                        readFail++;
+                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                    }
+                    if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
                 }
-                // Yield to UI every 2 files to prevent freezing
-                if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
-            }
-            hidePackLoader();
 
-            // Check for duplicates against all existing images (uses cached hashes)
-            const duplicates = await findDuplicates(processed, db.images);
+                // Phase 2: Duplicate check
+                _ref(card, 'phase').textContent = 'Checking duplicates…';
+                const existingImages = packId ? db.images.filter(img => img.packId === packId) : db.images;
+                const duplicates = await findDuplicates(processed, existingImages);
 
-            let imagesToAdd = processed;
-            if (duplicates.length > 0) {
-                imagesToAdd = await showDuplicateReviewModal(duplicates, processed);
-                skippedCount = processed.length - imagesToAdd.length;
-            }
+                const nonDuplicateSet = new Set(duplicates.map(d => d.newImage));
+                const cleanImages = processed.filter(img => !nonDuplicateSet.has(img));
 
-            // Add remaining images
-            for (const img of imagesToAdd) {
-                try {
-                    const success = await db.addImage(img.dataUrl, img.width, img.height, undefined, undefined, img.sha256, img.phash, img.type);
-                    if (success) successCount++;
-                    else failCount++;
-                } catch (e) {
-                    console.error('Error saving image:', e);
-                    failCount++;
+                // Phase 3: Save non-duplicate images
+                _ref(card, 'phase').textContent = 'Saving images…';
+                let successCount = 0, failCount = readFail;
+                for (let i = 0; i < cleanImages.length; i++) {
+                    const img = cleanImages[i];
+                    try {
+                        const success = await db.addImage(img.dataUrl, img.width, img.height, packId || undefined, undefined, img.sha256, img.phash, img.type);
+                        if (success) successCount++;
+                        else failCount++;
+                    } catch (e) {
+                        console.error('Error saving image:', e);
+                        failCount++;
+                    }
+                    _updateCard(card, i + 1, cleanImages.length, 'Saving images…');
+                    if (i % 3 === 0) await new Promise(r => setTimeout(r, 0));
                 }
+
+                job.successCount = successCount;
+                job.failCount = failCount;
+                job.skippedCount = 0;
+
+                // Phase 4: Finish - surface duplicates or auto-dismiss
+                if (duplicates.length > 0) {
+                    job.duplicates = duplicates;
+                    job.processed = processed;
+                    _finishCard(card, successCount, failCount, 0, true);
+                    _addDuplicateActions(card, id);
+                } else {
+                    _finishCard(card, successCount, failCount, 0, false);
+                    _addDismiss(card, id);
+                    // Auto-dismiss after 5s if no issues
+                    if (failCount === 0) setTimeout(() => dismiss(id), 5000);
+                }
+
+                // Refresh current view
+                if (successCount > 0) {
+                    if (currentView === 'battle') renderBattle();
+                    else if (currentView === 'leaderboard') renderLeaderboard();
+                }
+
+                // Callback for post-processing (e.g. pack metadata update)
+                if (duplicates.length === 0 && onComplete) {
+                    try { await onComplete({ successCount, failCount, skippedCount: 0 }); } catch(e) { console.error('onComplete error:', e); }
+                }
+
+                return { successCount, failCount, duplicatesFound: duplicates.length };
             }
 
-            let msg = '';
-            if (failCount > 0) msg += `Failed: ${failCount}. `;
-            if (skippedCount > 0) msg += `Skipped duplicates: ${skippedCount}`;
-            await showNotify(`Uploaded ${successCount} images!`, { message: msg.trim(), type: 'success' });
-            showBattleView();
+            return { enqueue, dismiss, reviewDuplicates };
+        })();
+
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+            importQueue.enqueue(files);
         }
 
         const uploadZone = document.getElementById('uploadZone');
@@ -6095,7 +6357,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Collect a reference image for each @tag
             let totalFound = 0;
             for (const tag of allTags) {
-                const refImages = db.images.filter(img => (img.tags || []).includes(tag));
+                const refImages = getImagesForTag(tag);
                 if (refImages.length === 0) continue;
                 // Use the first tagged image as reference
                 await runFaceScan(refImages[0].id, tag);
@@ -6851,7 +7113,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
 
         function viewTagDetail(tag) {
-            const images = db.images.filter(img => (img.tags || []).includes(tag));
+            const images = getImagesForTag(tag);
             tagDetailImages = images;
             document.getElementById('tagDetailName').textContent = tag;
             document.getElementById('tagDetailMeta').textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
@@ -7518,85 +7780,22 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const packId = uploadTargetPackId;
             if (!packId) return;
 
-            let successCount = 0;
-            let failCount = 0;
-            let skippedCount = 0;
-            const totalFiles = files.length;
+            const pack = db.packs.find(p => p.packId === packId);
+            const packName = pack ? pack.name : 'pack';
 
-            if (totalFiles > 0) {
-                showPackLoader('', totalFiles, 'Processing Files...');
-            }
-
-            // First pass: read all media files with hashes
-            const processed = [];
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!isMediaFile(file)) {
-                    failCount++;
-                    updatePackLoader(processed.length + failCount, null);
-                    continue;
-                }
-                try {
-                    const result = await readMediaFile(file);
-                    result.fileName = file.name;
-                    if (result.type !== 'video') {
-                        result.sha256 = await computeImageHash(result.dataUrl);
-                        result.phash = await computePerceptualHash(result.dataUrl);
-                    } else {
-                        result.sha256 = null;
-                        result.phash = null;
+            importQueue.enqueue(files, {
+                packId,
+                label: `Adding to ${packName}`,
+                onComplete: async ({ successCount }) => {
+                    if (successCount > 0) {
+                        await updatePackMetadata(packId);
+                        renderPacks();
+                        if (document.getElementById('packDetailOverlay').classList.contains('active') && currentViewingPackId === packId) {
+                            viewPackDetail(packId);
+                        }
                     }
-                    processed.push(result);
-                    updatePackLoader(processed.length + failCount, result.type !== 'video' ? result.dataUrl : null);
-                } catch (err) {
-                    console.error('Error processing file for pack:', err);
-                    failCount++;
-                    updatePackLoader(processed.length + failCount, null);
                 }
-                // Yield to UI every 2 files
-                if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
-            }
-            hidePackLoader();
-
-            // Check for duplicates against existing pack images (uses cached hashes)
-            const existingImages = db.images.filter(img => img.packId === packId);
-            const duplicates = await findDuplicates(processed, existingImages);
-
-            // If duplicates found, show review modal
-            let imagesToAdd = processed;
-            if (duplicates.length > 0) {
-                const kept = await showDuplicateReviewModal(duplicates, processed);
-                imagesToAdd = kept;
-                skippedCount = processed.length - kept.length;
-            }
-
-            // Add remaining images
-            for (const img of imagesToAdd) {
-                try {
-                    const success = await db.addImage(img.dataUrl, img.width, img.height, packId, undefined, img.sha256, img.phash, img.type);
-                    if (success) successCount++;
-                    else failCount++;
-                } catch (err) {
-                    console.error('Error saving image to pack:', err);
-                    failCount++;
-                }
-            }
-
-            // Update pack metadata
-            if (successCount > 0) {
-                await updatePackMetadata(packId);
-            }
-
-            let msg = '';
-            if (failCount > 0) msg += `Failed: ${failCount}. `;
-            if (skippedCount > 0) msg += `Skipped duplicates: ${skippedCount}`;
-            await showNotify(`Added ${successCount} image(s) to pack!`, { message: msg.trim(), type: 'success' });
-            renderPacks();
-
-            // If pack detail is open, refresh it
-            if (document.getElementById('packDetailOverlay').classList.contains('active') && currentViewingPackId === packId) {
-                viewPackDetail(packId);
-            }
+            });
 
             uploadTargetPackId = null;
             e.target.value = '';
@@ -8064,5 +8263,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             <div class="help-close-hint">Press ? or Esc to close</div>
         </div>
     </div>
+
+    <!-- Background Import Queue -->
+    <div id="importQueue" class="import-queue"></div>
 </body>
 </html>
