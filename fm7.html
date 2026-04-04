@@ -4545,19 +4545,34 @@
             }
 
             // Helper: set src on an element, replacing <img> with <video> when needed
-            function setMediaSrc(el, data) {
+            // For video data URLs, converts to blob URL first — avoids Firefox/slow-PC freeze
+            // caused by browsers trying to decode the entire base64 blob before playing.
+            async function setMediaSrc(el, data) {
                 if (!el || !data) return;
-                if (data.startsWith('data:video/') && el.tagName === 'IMG') {
-                    const vid = document.createElement('video');
-                    vid.autoplay = true;
-                    vid.loop = true;
-                    vid.muted = true;
-                    vid.playsInline = true;
-                    vid.className = el.className;
-                    vid.id = el.id;
-                    if (el.dataset.imageId) vid.dataset.imageId = el.dataset.imageId;
-                    vid.src = data;
-                    if (el.parentNode) el.parentNode.replaceChild(vid, el);
+                if (data.startsWith('data:video/')) {
+                    let vid = el;
+                    if (el.tagName === 'IMG') {
+                        vid = document.createElement('video');
+                        vid.autoplay = true;
+                        vid.loop = true;
+                        vid.muted = true;
+                        vid.playsInline = true;
+                        vid.className = el.className;
+                        vid.id = el.id;
+                        if (el.dataset.imageId) vid.dataset.imageId = el.dataset.imageId;
+                        if (el.parentNode) el.parentNode.replaceChild(vid, el);
+                    }
+                    // Revoke any previous blob URL on this element to free memory
+                    if (vid._blobUrl) { URL.revokeObjectURL(vid._blobUrl); vid._blobUrl = null; }
+                    try {
+                        const blob = await fetch(data).then(r => r.blob());
+                        const blobUrl = URL.createObjectURL(blob);
+                        vid._blobUrl = blobUrl;
+                        vid.src = blobUrl;
+                    } catch (_) {
+                        // Fallback: set data URL directly if fetch fails
+                        vid.src = data;
+                    }
                 } else {
                     el.src = data;
                 }
@@ -4707,9 +4722,17 @@
                     video.playsInline = true;
                     await new Promise((res, rej) => { video.onloadeddata = res; video.onerror = rej; video.src = objUrl; });
 
-                    const w = video.videoWidth || 640;
-                    const h = video.videoHeight || 480;
+                    let w = video.videoWidth || 640;
+                    let h = video.videoHeight || 480;
                     const duration = video.duration || 2;
+
+                    // Cap resolution at 720px on the longest side for smaller files and faster decode
+                    const MAX_DIM = 720;
+                    if (w > MAX_DIM || h > MAX_DIM) {
+                        const scale = MAX_DIM / Math.max(w, h);
+                        w = Math.round(w * scale);
+                        h = Math.round(h * scale);
+                    }
 
                     const canvas = document.createElement('canvas');
                     canvas.width = w; canvas.height = h;
@@ -4721,8 +4744,8 @@
                         ? 'video/webm; codecs=vp9'
                         : 'video/webm; codecs=vp8';
 
-                    const stream = canvas.captureStream(60);
-                    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+                    const stream = canvas.captureStream(30);
+                    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 3_000_000 });
                     const chunks = [];
                     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
