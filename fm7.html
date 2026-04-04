@@ -139,36 +139,6 @@
             will-change: transform, opacity;
         }
 
-        /* Anime girl decorations */
-        .anime-decoration {
-            position: fixed;
-            width: 120px;
-            height: 120px;
-            opacity: 0.15;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .anime-decoration.top-left {
-            top: 100px;
-            left: 20px;
-        }
-
-        .anime-decoration.top-right {
-            top: 100px;
-            right: 20px;
-        }
-
-        .anime-decoration.bottom-left {
-            bottom: 20px;
-            left: 20px;
-        }
-
-        .anime-decoration.bottom-right {
-            bottom: 20px;
-            right: 20px;
-        }
-
         .container {
             max-width: 1800px;
             margin: 0 auto;
@@ -1504,9 +1474,6 @@
                 font-size: 1.6em;
             }
 
-            .anime-decoration {
-                display: none;
-            }
         }
 
         .sparkle {
@@ -2851,29 +2818,6 @@
     </style>
 </head>
 <body>
-    <!-- Anime girl decorations -->
-    <svg class="anime-decoration top-left" viewBox="0 0 200 200">
-        <circle cx="100" cy="80" r="50" fill="#bb86fc" opacity="0.3"/>
-        <circle cx="85" cy="70" r="8" fill="#1a1a2e"/>
-        <circle cx="115" cy="70" r="8" fill="#1a1a2e"/>
-        <path d="M 75 95 Q 100 110 125 95" stroke="#1a1a2e" stroke-width="4" fill="none"/>
-        <circle cx="85" cy="75" r="3" fill="#fff"/>
-        <circle cx="115" cy="75" r="3" fill="#fff"/>
-        <path d="M 50 60 Q 60 50 75 55" stroke="#bb86fc" stroke-width="3" fill="none"/>
-        <path d="M 150 60 Q 140 50 125 55" stroke="#bb86fc" stroke-width="3" fill="none"/>
-    </svg>
-
-    <svg class="anime-decoration top-right" viewBox="0 0 200 200">
-        <circle cx="100" cy="80" r="50" fill="#9d4edd" opacity="0.3"/>
-        <circle cx="85" cy="70" r="8" fill="#1a1a2e"/>
-        <circle cx="115" cy="70" r="8" fill="#1a1a2e"/>
-        <path d="M 80 95 Q 100 105 120 95" stroke="#1a1a2e" stroke-width="4" fill="none"/>
-        <circle cx="85" cy="75" r="3" fill="#fff"/>
-        <circle cx="115" cy="75" r="3" fill="#fff"/>
-        <circle cx="90" cy="50" r="6" fill="#9d4edd"/>
-        <circle cx="110" cy="50" r="6" fill="#9d4edd"/>
-    </svg>
-
     <div class="container">
         <div class="header">
             <h1>𝚏𝚖𝟽 アニメフェイスマッシュ</h1>
@@ -4587,16 +4531,32 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         let currentView = 'battle';
         let activeTagFilters = new Set();
 
-        // Helper: generate HTML tag for an image element
+        // Helper: generate HTML tag for an image/video element
         function mediaHTML(imgMeta, extraAttrs) {
             const attrs = extraAttrs || '';
+            if (imgMeta.type === 'video') {
+                return `<video data-image-id="${imgMeta.id}" autoplay loop muted playsinline ${attrs}></video>`;
+            }
             return `<img data-image-id="${imgMeta.id}" ${attrs}>`;
         }
 
-        // Helper: set src on an element
+        // Helper: set src on an element, replacing <img> with <video> when needed
         function setMediaSrc(el, data) {
             if (!el || !data) return;
-            el.src = data;
+            if (data.startsWith('data:video/') && el.tagName === 'IMG') {
+                const vid = document.createElement('video');
+                vid.autoplay = true;
+                vid.loop = true;
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.className = el.className;
+                vid.id = el.id;
+                if (el.dataset.imageId) vid.dataset.imageId = el.dataset.imageId;
+                vid.src = data;
+                if (el.parentNode) el.parentNode.replaceChild(vid, el);
+            } else {
+                el.src = data;
+            }
         }
 
         // === LAZY IMAGE LOADING SYSTEM ===
