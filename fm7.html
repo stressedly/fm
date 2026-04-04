@@ -3121,6 +3121,19 @@
         </div>
     </div>
 
+    <!-- Busy/Progress Overlay (lightweight, for any long operation) -->
+    <div class="pack-loader-overlay" id="busyOverlay">
+        <div class="pack-loader-container">
+            <div class="pack-loader-spinner"></div>
+            <div class="pack-loader-title" id="busyTitle">Working...</div>
+            <div class="pack-loader-subtitle" id="busySubtitle"></div>
+            <div class="pack-loader-progress-wrap" id="busyBarWrap" style="display:none;">
+                <div class="pack-loader-progress-bar" id="busyBar"></div>
+                <div class="pack-loader-progress-text" id="busyBarText">0%</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tag Search Dialog -->
     <div class="tag-search-overlay" id="tagSearchOverlay">
         <div class="tag-search-box">
@@ -3277,6 +3290,28 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 packLoaderState.particleInterval = null;
             }
             document.getElementById('packLoaderOverlay').classList.remove('active');
+        }
+
+        function showBusy(title, subtitle) {
+            document.getElementById('busyTitle').textContent = title || 'Working...';
+            document.getElementById('busySubtitle').textContent = subtitle || '';
+            document.getElementById('busyBarWrap').style.display = 'none';
+            document.getElementById('busyOverlay').classList.add('active');
+        }
+
+        function updateBusy(subtitle, progress) {
+            if (subtitle !== undefined) document.getElementById('busySubtitle').textContent = subtitle;
+            if (progress !== undefined) {
+                const wrap = document.getElementById('busyBarWrap');
+                wrap.style.display = '';
+                const pct = Math.round(progress * 100);
+                document.getElementById('busyBar').style.width = pct + '%';
+                document.getElementById('busyBarText').textContent = pct + '%';
+            }
+        }
+
+        function hideBusy() {
+            document.getElementById('busyOverlay').classList.remove('active');
         }
 
         // Offline UI assets (loaded via <script> tag from ui.json.js)
@@ -4216,21 +4251,25 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             // Batched export - fetches 50 records at a time with yields to avoid Firefox slow-script dialog
-            async exportDataAsBlob() {
+            async exportDataAsBlob(onProgress) {
                 const BATCH_SIZE = 50;
+                const total = this.images.length;
                 const parts = [];
                 parts.push('{"version":2,"exportDate":"');
                 parts.push(new Date().toISOString());
                 parts.push('","images":[');
                 let first = true;
                 let lastKey;
+                let exported = 0;
                 while (true) {
                     const batch = await this.storage.getImageBatch(lastKey, BATCH_SIZE);
                     for (const image of batch) {
                         if (!first) parts.push(',');
                         parts.push(JSON.stringify(image));
                         first = false;
+                        exported++;
                     }
+                    if (onProgress && exported > 0) onProgress(exported, total);
                     if (batch.length < BATCH_SIZE) break;
                     lastKey = batch[batch.length - 1].id;
                     await new Promise(r => setTimeout(r, 0));
@@ -4241,7 +4280,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 return new Blob(parts, { type: 'application/json' });
             }
 
-            async importData(data) {
+            async importData(data, onProgress) {
                 // Support pack files directly
                 if (data.packVersion) {
                     return await this.loadPackFromFile(data);
@@ -4253,10 +4292,16 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 await this.clear();
 
-                for (const image of data.images) {
+                for (let i = 0; i < data.images.length; i++) {
+                    const image = data.images[i];
                     if (!image.packId) image.packId = null;
                     await this.storage.saveImage(image);
+                    if (onProgress && (i + 1) % 10 === 0) {
+                        onProgress(i + 1);
+                        await new Promise(r => setTimeout(r, 0));
+                    }
                 }
+                if (onProgress) onProgress(data.images.length);
 
                 // Restore packs metadata if present
                 if (data.packs) {
@@ -4387,12 +4432,15 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
         }
 
+        const _videoExtensions = ['.mp4','.webm','.ogg','.ogv','.mov','.m4v','.avi','.mkv','.3gp'];
         function isVideoFile(file) {
-            return file.type.startsWith('video/');
+            if (file.type && file.type.startsWith('video/')) return true;
+            const name = (file.name || '').toLowerCase();
+            return _videoExtensions.some(ext => name.endsWith(ext));
         }
-
         function isMediaFile(file) {
-            return file.type.startsWith('image/') || file.type.startsWith('video/');
+            if (file.type && file.type.startsWith('image/')) return true;
+            return isVideoFile(file);
         }
 
         function readImageLossless(file) {
@@ -4439,20 +4487,25 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
         function readVideoFile(file) {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const video = document.createElement('video');
-                    video.muted = true;
-                    video.preload = 'metadata';
-                    video.onloadedmetadata = () => {
-                        resolve({ dataUrl: e.target.result, width: video.videoWidth || 0, height: video.videoHeight || 0, type: 'video' });
-                        URL.revokeObjectURL(video.src);
+                // Use object URL for metadata detection (more reliable than data URL)
+                const objUrl = URL.createObjectURL(file);
+                const video = document.createElement('video');
+                video.muted = true;
+                video.preload = 'auto';
+                video.onloadeddata = () => {
+                    const w = video.videoWidth || 640;
+                    const h = video.videoHeight || 480;
+                    // Now read the actual data URL for storage
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        URL.revokeObjectURL(objUrl);
+                        resolve({ dataUrl: e.target.result, width: w, height: h, type: 'video' });
                     };
-                    video.onerror = reject;
-                    video.src = e.target.result;
+                    reader.onerror = (err) => { URL.revokeObjectURL(objUrl); reject(err); };
+                    reader.readAsDataURL(file);
                 };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
+                video.onerror = (err) => { URL.revokeObjectURL(objUrl); reject(err); };
+                video.src = objUrl;
             });
         }
 
@@ -6268,40 +6321,50 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
 
         async function exportData() {
-            const blob = await db.exportDataAsBlob();
-            // Verify the blob ends with valid JSON before downloading
-            const tail = await blob.slice(-1).text();
-            if (tail !== '}') {
-                console.error('[Export] Blob appears truncated. Last char:', JSON.stringify(tail), 'Blob size:', blob.size);
-                await showNotify('Export failed', { message: 'Generated data appears corrupt. Try again.', type: 'error' });
-                return;
-            }
-            console.log('[Export] Blob verified OK, size:', blob.size);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `facemash-export-${new Date().toISOString().split('T')[0]}.json`;
-            // Use File System Access API for large files if available, else fallback
-            if (blob.size > 50 * 1024 * 1024 && window.showSaveFilePicker) {
-                try {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: a.download,
-                        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    URL.revokeObjectURL(url);
-                    showNotify('Data exported successfully!', { type: 'success' });
+            showBusy('Exporting...', 'Preparing data for export');
+            await new Promise(r => requestAnimationFrame(r));
+            try {
+                const blob = await db.exportDataAsBlob((exported, total) => {
+                    updateBusy(`Exported ${exported} of ${total} images`, total > 0 ? exported / total : 0);
+                });
+                hideBusy();
+                // Verify the blob ends with valid JSON before downloading
+                const tail = await blob.slice(-1).text();
+                if (tail !== '}') {
+                    console.error('[Export] Blob appears truncated. Last char:', JSON.stringify(tail), 'Blob size:', blob.size);
+                    await showNotify('Export failed', { message: 'Generated data appears corrupt. Try again.', type: 'error' });
                     return;
-                } catch (err) {
-                    if (err.name === 'AbortError') { URL.revokeObjectURL(url); return; }
-                    console.warn('[Export] File System Access failed, falling back:', err);
                 }
+                console.log('[Export] Blob verified OK, size:', blob.size);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `facemash-export-${new Date().toISOString().split('T')[0]}.json`;
+                // Use File System Access API for large files if available, else fallback
+                if (blob.size > 50 * 1024 * 1024 && window.showSaveFilePicker) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: a.download,
+                            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        URL.revokeObjectURL(url);
+                        showNotify('Data exported successfully!', { type: 'success' });
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') { URL.revokeObjectURL(url); return; }
+                        console.warn('[Export] File System Access failed, falling back:', err);
+                    }
+                }
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 120000);
+                showNotify('Data exported successfully!', { type: 'success' });
+            } catch (err) {
+                hideBusy();
+                await showNotify('Export failed', { message: err.message, type: 'error' });
             }
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 120000);
-            showNotify('Data exported successfully!', { type: 'success' });
         }
 
         function importData() {
@@ -6373,7 +6436,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Skip to after "images":[
             buf = buf.slice(imagesIdx + '"images":['.length);
 
-            showNotify('Importing...', { message: 'Reading images from file...', type: 'info', duration: 0 });
+            updateBusy('Reading images from file...');
 
             // === Parse images array ===
             while (true) {
@@ -6403,7 +6466,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     await db.storage.saveImage(image);
                     imageCount++;
                     if (imageCount % 20 === 0) {
-                        showNotify('Importing...', { message: `${imageCount} images imported...`, type: 'info', duration: 0 });
+                        updateBusy(`${imageCount} images imported...`);
                         await new Promise(r => setTimeout(r, 0));
                     }
                 } catch (parseErr) {
@@ -6472,11 +6535,19 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const doReplace = await showConfirm('Replace all data?', { message: `This is a large file (${(file.size / 1024 / 1024).toFixed(0)}MB). This will replace all current images and ratings.`, confirmText: 'Replace', danger: true });
                     if (!doReplace) { e.target.value = ''; return; }
                     closeImportModal();
+                    showBusy('Importing...', 'Reading file...');
+                    await new Promise(r => requestAnimationFrame(r));
                     const result = await streamImportFile(file);
+                    hideBusy();
                     if (result.type === 'pack') {
                         const data = result.data;
                         const imgCount = (data.images || []).length;
-                        const loaded = await db.loadPackFromFile(data);
+                        showPackLoader(file.name, imgCount);
+                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        const loaded = await db.loadPackFromFile(data, (current, thumbUrl) => {
+                            updatePackLoader(current, thumbUrl);
+                        });
+                        hidePackLoader();
                         if (loaded) {
                             await showNotify(`Pack "${data.name}" loaded!`, { message: `${imgCount} images imported`, type: 'success' });
                         } else {
@@ -6488,14 +6559,17 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         showBattleView();
                     }
                 } else {
-                    // Small files: use original approach
+                    // Small files: show busy immediately while reading
+                    closeImportModal();
+                    showBusy('Importing...', 'Reading file...');
+                    await new Promise(r => requestAnimationFrame(r));
                     const text = await file.text();
                     const data = JSON.parse(text);
 
                     // Detect pack files
                     if (data.packVersion) {
-                        closeImportModal();
                         const imgCount = (data.images || []).length;
+                        hideBusy();
                         if (imgCount > 10) {
                             showPackLoader(file.name, imgCount);
                             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -6511,18 +6585,28 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         }
                         showPacksView();
                     } else {
-                        const doReplace = await showConfirm('Replace all data?', { message: 'This will replace all current images and ratings.', confirmText: 'Replace', danger: true });
-                        if (doReplace) {
-                            const success = await db.importData(data);
+                        const doImport = await new Promise(resolve => {
+                            hideBusy();
+                            showConfirm('Replace all data?', { message: 'This will replace all current images and ratings.', confirmText: 'Replace', danger: true }).then(resolve);
+                        });
+                        if (doImport) {
+                            showBusy('Importing...', 'Clearing old data...');
+                            await new Promise(r => requestAnimationFrame(r));
+                            const total = data.images ? data.images.length : 0;
+                            const success = await db.importData(data, (current) => {
+                                updateBusy(`Importing image ${current} of ${total}`, total > 0 ? current / total : 0);
+                            });
+                            hideBusy();
                             if (success) {
                                 await showNotify('Data imported successfully!', { type: 'success' });
-                                closeImportModal();
                                 showBattleView();
                             }
                         }
                     }
                 }
             } catch (e) {
+                hideBusy();
+                hidePackLoader();
                 await showNotify('Error importing data', { message: e.message, type: 'error' });
             }
             e.target.value = '';
@@ -6533,7 +6617,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (!first) return;
             const second = await showConfirm('Really sure?', { message: 'This cannot be undone!', confirmText: 'Delete all data', danger: true });
             if (!second) return;
+            showBusy('Clearing...', 'Deleting all data');
+            await new Promise(r => requestAnimationFrame(r));
             await db.clear();
+            hideBusy();
             await showNotify('All data cleared!', { type: 'success' });
             await showSampleImagesPrompt();
         }
@@ -7328,22 +7415,33 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const pack = db.packs.find(p => p.packId === packId);
             if (!pack) return;
 
-            const blob = await db.exportPackAsBlob(packId);
-            if (!blob) return;
+            showBusy('Exporting Pack...', `Preparing "${pack.name}"`);
+            await new Promise(r => requestAnimationFrame(r));
+            try {
+                const blob = await db.exportPackAsBlob(packId);
+                hideBusy();
+                if (!blob) return;
 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const slug = pack.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-            a.download = `pack-${slug}-${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const slug = pack.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                a.download = `pack-${slug}-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } catch (err) {
+                hideBusy();
+                await showNotify('Export failed', { message: err.message, type: 'error' });
+            }
         }
 
         async function removePackConfirm(packId, packName) {
             const doRemove = await showConfirm(`Remove "${packName}"?`, { message: 'This will delete the pack and all its images.', confirmText: 'Remove', danger: true });
             if (doRemove) {
+                showBusy('Removing...', `Deleting "${packName}"`);
+                await new Promise(r => requestAnimationFrame(r));
                 await db.removePack(packId);
+                hideBusy();
                 renderPacks();
             }
         }
@@ -7476,8 +7574,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             let skipped = 0;
             let errors = 0;
 
-            for (const file of files) {
+            showBusy('Loading Packs...', `Reading ${files.length} file(s)...`);
+            await new Promise(r => requestAnimationFrame(r));
+
+            for (let fi = 0; fi < files.length; fi++) {
+                const file = files[fi];
                 try {
+                    updateBusy(`Reading file ${fi + 1} of ${files.length}...`);
                     const text = await file.text();
                     const data = JSON.parse(text);
 
@@ -7499,26 +7602,37 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                     if (packData) {
                         const imgCount = (packData.images || []).length;
+                        hideBusy();
                         if (imgCount > 10) {
                             showPackLoader(file.name, imgCount);
-                            // Yield a frame so the loader renders
                             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        } else {
+                            showBusy('Loading Pack...', `Importing "${packData.name}"...`);
+                            await new Promise(r => requestAnimationFrame(r));
                         }
                         const success = await db.loadPackFromFile(packData, (current, thumbUrl) => {
                             if (imgCount > 10) updatePackLoader(current, thumbUrl);
                         });
                         if (imgCount > 10) hidePackLoader();
+                        else hideBusy();
                         if (success) loaded++;
                         else skipped++;
+                        // Re-show busy if more files remain
+                        if (fi < files.length - 1) {
+                            showBusy('Loading Packs...', `Processing file ${fi + 2} of ${files.length}...`);
+                            await new Promise(r => requestAnimationFrame(r));
+                        }
                     } else {
                         errors++;
                     }
                 } catch (err) {
                     hidePackLoader();
+                    hideBusy();
                     console.error('Error loading pack file:', err);
                     errors++;
                 }
             }
+            hideBusy();
 
             let msg = `Loaded ${loaded} pack(s)`;
             if (skipped) msg += `\n${skipped} skipped (already loaded)`;
