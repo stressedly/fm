@@ -2876,8 +2876,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>アニメフェイスマッシュ</h1>
-            <p class="subtitle">Choose your favorite anime girl! <span class="jp" style="display:inline; font-size:0.85em; opacity:0.7;">あなたの好きを選んでね！</span></p>
+            <h1>𝚏𝚖𝟽 アニメフェイスマッシュ</h1>
+            <!-- <p class="subtitle">Choose your favorite anime girl! <span class="jp" style="display:inline; font-size:0.85em; opacity:0.7;">あなたの好きを選んでね！</span></p> -->
 
             <div class="storage-info">
                 <div class="storage-bar">
@@ -4845,8 +4845,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             return { canvasToWebPBlob, blobToArrayBuffer, encode };
         })();
 
-        // Convert a video file to an animated WebP (full color, high fps, high res)
-        async function videoToWebP(file, { maxSize = 640, fps = 30, maxDuration = 8, quality = 0.85 } = {}) {
+        // Convert a video file to an animated WebP (full color, high fps, full res)
+        async function videoToWebP(file, { fps = 30, quality = 1, onProgress = null } = {}) {
             const objUrl = URL.createObjectURL(file);
             try {
                 const video = document.createElement('video');
@@ -4855,20 +4855,18 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 video.playsInline = true;
                 await new Promise((res, rej) => { video.onloadeddata = res; video.onerror = rej; video.src = objUrl; });
 
-                const vw = video.videoWidth || 640;
-                const vh = video.videoHeight || 480;
-                // Keep original resolution up to maxSize
-                const scale = Math.min(1, maxSize / Math.max(vw, vh));
-                const w = Math.round(vw * scale);
-                const h = Math.round(vh * scale);
-                const duration = Math.min(video.duration || 2, maxDuration);
+                const w = video.videoWidth || 640;
+                const h = video.videoHeight || 480;
+                const duration = video.duration || 2;
                 const numFrames = Math.max(6, Math.round(duration * fps));
                 const interval = duration / numFrames;
                 const delayMs = Math.round(interval * 1000);
 
                 const canvas = document.createElement('canvas');
                 canvas.width = w; canvas.height = h;
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { alpha: false });
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
                 const frameDataArr = [];
                 for (let i = 0; i < numFrames; i++) {
@@ -4878,6 +4876,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const blob = await WebPEncoder.canvasToWebPBlob(canvas, quality);
                     const ab = await WebPEncoder.blobToArrayBuffer(blob);
                     frameDataArr.push({ webpBytes: new Uint8Array(ab), durationMs: delayMs });
+                    if (onProgress) onProgress(i + 1, numFrames);
                     if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
@@ -4895,8 +4894,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
         }
 
-        function readMediaFile(file) {
-            return isVideoFile(file) ? videoToWebP(file) : readImageLossless(file);
+        function readMediaFile(file, { onProgress = null } = {}) {
+            return isVideoFile(file) ? videoToWebP(file, { onProgress }) : readImageLossless(file);
         }
 
         // --- Duplicate Detection Utilities ---
@@ -5639,7 +5638,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 // Phase 1: Read & hash files (non-blocking via yields)
                 const processed = [];
                 let readFail = 0;
-                let gifCount = 0;
+                let videoConvertCount = 0;
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     if (!isMediaFile(file)) {
@@ -5650,13 +5649,23 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const isVid = isVideoFile(file);
                     try {
                         if (isVid) {
-                            _updateCard(card, processed.length + readFail, totalFiles, `Converting video → GIF (${file.name.slice(0, 18)})…`);
+                            _updateCard(card, processed.length + readFail, totalFiles, `Converting video → WebP (${file.name.slice(0, 18)})…`);
                         } else {
                             _updateCard(card, processed.length + readFail, totalFiles, `Reading image ${i + 1}…`);
                         }
-                        const result = await readMediaFile(file);
+                        const vidProgress = isVid ? (frame, total) => {
+                            const framePct = Math.round((frame / total) * 100);
+                            _ref(card, 'phase').textContent = `Converting → WebP: ${framePct}% (${file.name.slice(0, 18)})`;
+                            // Show sub-progress: interpolate between current file and next file
+                            const baseProgress = (processed.length + readFail) / totalFiles;
+                            const fileProgress = frame / total / totalFiles;
+                            const combinedPct = Math.round((baseProgress + fileProgress) * 100);
+                            _ref(card, 'bar').style.width = combinedPct + '%';
+                            _ref(card, 'status').textContent = combinedPct + '%';
+                        } : null;
+                        const result = await readMediaFile(file, { onProgress: vidProgress });
                         result.fileName = file.name;
-                        if (isVid) gifCount++;
+                        if (isVid) videoConvertCount++;
                         _updateCard(card, processed.length + readFail, totalFiles, `Hashing ${i + 1}…`);
                         result.sha256 = await computeImageHash(result.dataUrl);
                         result.phash = await computePerceptualHash(result.dataUrl);
@@ -5673,7 +5682,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 // Phase 2: Duplicate check
                 const existingCount = packId ? db.images.filter(img => img.packId === packId).length : db.images.length;
                 _ref(card, 'phase').textContent = `Checking ${processed.length} against ${existingCount} existing…`;
-                _ref(card, 'detail').textContent = gifCount > 0 ? `${processed.length} images (${gifCount} from video)` : `${processed.length} images`;
+                _ref(card, 'detail').textContent = videoConvertCount > 0 ? `${processed.length} images (${videoConvertCount} from video)` : `${processed.length} images`;
                 _ref(card, 'bar').style.width = '100%';
                 _ref(card, 'status').textContent = '…';
                 const existingImages = packId ? db.images.filter(img => img.packId === packId) : db.images;
