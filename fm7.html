@@ -231,7 +231,7 @@
             border-radius: 15px;
             margin-top: 12px;
             border: 1px solid rgba(138, 43, 226, 0.3);
-            
+
         }
 
         .storage-bar {
@@ -2720,6 +2720,7 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 8px;
+            gap: 8px;
         }
         .iq-title {
             color: #e0d6f2;
@@ -2728,17 +2729,40 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 220px;
+            flex: 1;
+            min-width: 0;
         }
         .iq-status {
             color: rgba(177, 156, 217, 0.7);
             font-size: 0.7em;
             flex-shrink: 0;
         }
+        .iq-close {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: rgba(255,255,255,0.06);
+            color: rgba(177, 156, 217, 0.5);
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s;
+            padding: 0;
+            font-family: inherit;
+        }
+        .iq-close:hover {
+            background: rgba(255,255,255,0.12);
+            color: #e0d6f2;
+        }
         .iq-bar-track {
             width: 100%;
-            height: 6px;
-            background: rgba(138, 43, 226, 0.15);
+            height: 5px;
+            background: rgba(138, 43, 226, 0.12);
             border-radius: 3px;
             overflow: hidden;
         }
@@ -2758,9 +2782,28 @@
         .iq-detail {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-top: 6px;
-            color: rgba(177, 156, 217, 0.6);
+            color: rgba(177, 156, 217, 0.55);
             font-size: 0.68em;
+        }
+        .iq-phase {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .iq-phase-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #bb86fc;
+            animation: iqPulse 1.2s ease-in-out infinite;
+        }
+        .import-queue-card.done .iq-phase-dot,
+        .import-queue-card.has-issues .iq-phase-dot { display: none; }
+        @keyframes iqPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
         }
         .iq-actions {
             display: flex;
@@ -2769,24 +2812,28 @@
         }
         .iq-actions button {
             flex: 1;
-            padding: 5px 0;
+            padding: 5px 10px;
             border-radius: 8px;
             border: 1px solid rgba(138, 43, 226, 0.35);
-            background: rgba(138, 43, 226, 0.15);
+            background: rgba(138, 43, 226, 0.12);
             color: #b19cd9;
             font-size: 0.72em;
             font-weight: 600;
             cursor: pointer;
             font-family: inherit;
-            transition: background 0.2s;
+            transition: background 0.15s, border-color 0.15s;
         }
         .iq-actions button:hover {
-            background: rgba(138, 43, 226, 0.3);
+            background: rgba(138, 43, 226, 0.25);
+            border-color: rgba(138, 43, 226, 0.5);
         }
         .iq-actions button.iq-primary {
-            background: rgba(138, 43, 226, 0.4);
+            background: rgba(138, 43, 226, 0.35);
             color: #e0d6f2;
-            border-color: rgba(138, 43, 226, 0.6);
+            border-color: rgba(138, 43, 226, 0.55);
+        }
+        .iq-actions button.iq-primary:hover {
+            background: rgba(138, 43, 226, 0.5);
         }
     </style>
 </head>
@@ -4043,6 +4090,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         sha256: sha256,
                         phash: phash,
                         type: (entry.data && entry.data.startsWith('data:video')) ? 'video' : 'image',
+                        dataSize: entry.data ? entry.data.length : 0,
                     };
                     await this.storage.saveImage(image);
                     const { data: _d, ...meta } = image;
@@ -4164,6 +4212,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     sha256: sha256 || null,
                     phash: phash || null,
                     type: type || 'image',
+                    dataSize: dataUrl ? dataUrl.length : 0,
                 };
 
                 try {
@@ -5284,12 +5333,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 card.innerHTML = `
                     <div class="iq-header">
                         <div class="iq-title">${_esc(label)}</div>
-                        <div class="iq-status" data-ref="status">Preparing…</div>
+                        <div class="iq-status" data-ref="status">0%</div>
+                        <button class="iq-close" onclick="importQueue.dismiss(${id})" title="Dismiss">×</button>
                     </div>
                     <div class="iq-bar-track"><div class="iq-bar-fill" data-ref="bar"></div></div>
                     <div class="iq-detail">
                         <span data-ref="detail">0 / ${total}</span>
-                        <span data-ref="phase">Reading files</span>
+                        <span class="iq-phase"><span class="iq-phase-dot"></span><span data-ref="phase">Reading files…</span></span>
                     </div>
                 `;
                 container().appendChild(card);
@@ -5313,33 +5363,27 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (hasDuplicates) {
                     card.classList.add('has-issues');
                     bar.classList.add('has-issues');
-                    _ref(card, 'status').textContent = 'Review';
-                    _ref(card, 'phase').textContent = 'Duplicates found';
+                    _ref(card, 'status').textContent = '⚠';
+                    _ref(card, 'detail').textContent = `${successCount} added`;
+                    _ref(card, 'phase').textContent = 'Duplicates need review';
                 } else {
                     card.classList.add('done');
                     bar.classList.add('done');
-                    _ref(card, 'status').textContent = 'Done';
+                    _ref(card, 'status').textContent = '✓';
                     let summary = `${successCount} added`;
                     if (failCount > 0) summary += `, ${failCount} failed`;
                     if (skippedCount > 0) summary += `, ${skippedCount} skipped`;
-                    _ref(card, 'phase').textContent = summary;
+                    _ref(card, 'detail').textContent = summary;
+                    _ref(card, 'phase').textContent = 'Complete';
                 }
             }
 
-            function _addDismiss(card, id) {
+            function _addDuplicateActions(card, id, dupCount) {
+                const existing = card.querySelector('.iq-actions');
+                if (existing) existing.remove();
                 const actions = document.createElement('div');
                 actions.className = 'iq-actions';
-                actions.innerHTML = `<button class="iq-primary" onclick="importQueue.dismiss(${id})">Dismiss</button>`;
-                card.appendChild(actions);
-            }
-
-            function _addDuplicateActions(card, id) {
-                const actions = document.createElement('div');
-                actions.className = 'iq-actions';
-                actions.innerHTML = `
-                    <button onclick="importQueue.dismiss(${id})">Dismiss</button>
-                    <button class="iq-primary" onclick="importQueue.reviewDuplicates(${id})">Review</button>
-                `;
+                actions.innerHTML = `<button class="iq-primary" onclick="importQueue.reviewDuplicates(${id})">Review ${dupCount} duplicate${dupCount !== 1 ? 's' : ''}</button>`;
                 card.appendChild(actions);
             }
 
@@ -5377,12 +5421,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 if (card) {
                     card.classList.remove('has-issues');
+                    const bar = _ref(card, 'bar');
+                    if (bar) bar.classList.remove('has-issues');
                     const oldActions = card.querySelector('.iq-actions');
                     if (oldActions) oldActions.remove();
                     _finishCard(card, job.successCount, job.failCount, job.skippedCount, false);
-                    _addDismiss(card, id);
-                    // Auto-dismiss after 6s
-                    setTimeout(() => dismiss(id), 6000);
+                    setTimeout(() => dismiss(id), 5000);
                 }
                 if (successCount > 0) {
                     if (currentView === 'battle') renderBattle();
@@ -5408,7 +5452,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const file = files[i];
                     if (!isMediaFile(file)) {
                         readFail++;
-                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                        _updateCard(card, processed.length + readFail, totalFiles, `Reading files…`);
                         continue;
                     }
                     try {
@@ -5422,17 +5466,21 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                             result.phash = null;
                         }
                         processed.push(result);
-                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                        _updateCard(card, processed.length + readFail, totalFiles, `Reading files…`);
                     } catch (e) {
                         console.error('Error processing file:', e);
                         readFail++;
-                        _updateCard(card, processed.length + readFail, totalFiles, 'Reading files');
+                        _updateCard(card, processed.length + readFail, totalFiles, `Reading files…`);
                     }
                     if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
                 // Phase 2: Duplicate check
-                _ref(card, 'phase').textContent = 'Checking duplicates…';
+                const existingCount = packId ? db.images.filter(img => img.packId === packId).length : db.images.length;
+                _ref(card, 'phase').textContent = `Checking ${processed.length} against ${existingCount} images…`;
+                _ref(card, 'detail').textContent = `Scanning for duplicates`;
+                _ref(card, 'bar').style.width = '100%';
+                _ref(card, 'status').textContent = '…';
                 const existingImages = packId ? db.images.filter(img => img.packId === packId) : db.images;
                 const duplicates = await findDuplicates(processed, existingImages);
 
@@ -5440,7 +5488,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const cleanImages = processed.filter(img => !nonDuplicateSet.has(img));
 
                 // Phase 3: Save non-duplicate images
-                _ref(card, 'phase').textContent = 'Saving images…';
+                if (cleanImages.length > 0) {
+                    _ref(card, 'bar').style.width = '0%';
+                }
                 let successCount = 0, failCount = readFail;
                 for (let i = 0; i < cleanImages.length; i++) {
                     const img = cleanImages[i];
@@ -5452,7 +5502,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         console.error('Error saving image:', e);
                         failCount++;
                     }
-                    _updateCard(card, i + 1, cleanImages.length, 'Saving images…');
+                    _updateCard(card, i + 1, cleanImages.length, `Saving images…`);
                     if (i % 3 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
@@ -5465,12 +5515,21 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     job.duplicates = duplicates;
                     job.processed = processed;
                     _finishCard(card, successCount, failCount, 0, true);
-                    _addDuplicateActions(card, id);
+                    _addDuplicateActions(card, id, duplicates.length);
                 } else {
                     _finishCard(card, successCount, failCount, 0, false);
-                    _addDismiss(card, id);
-                    // Auto-dismiss after 5s if no issues
                     if (failCount === 0) setTimeout(() => dismiss(id), 5000);
+                }
+
+                // Show notification
+                if (successCount > 0 || failCount > 0) {
+                    let notifMsg = '';
+                    if (failCount > 0) notifMsg += `${failCount} failed. `;
+                    if (duplicates.length > 0) notifMsg += `${duplicates.length} duplicate${duplicates.length !== 1 ? 's' : ''} to review.`;
+                    showNotify(`Imported ${successCount} image${successCount !== 1 ? 's' : ''}!`, {
+                        message: notifMsg.trim(),
+                        type: duplicates.length > 0 ? 'info' : 'success'
+                    });
                 }
 
                 // Refresh current view
@@ -7133,6 +7192,31 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('tagDetailOverlay').classList.remove('active');
         }
 
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+
+        function getPackSize(packId) {
+            const imgs = packId ? db.images.filter(img => img.packId === packId) : db.images.filter(img => !img.packId);
+            let total = 0;
+            let hasData = false;
+            for (const img of imgs) {
+                if (img.dataSize) {
+                    total += Math.floor(img.dataSize * 0.75);
+                    hasData = true;
+                }
+            }
+            return hasData ? total : -1; // -1 means no size data available
+        }
+
+        function formatPackSize(packId) {
+            const size = getPackSize(packId);
+            return size >= 0 ? formatFileSize(size) : '—';
+        }
+
         function renderPacks() {
             const grid = document.getElementById('packsGrid');
             const empty = document.getElementById('emptyPacks');
@@ -7160,7 +7244,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         </div>
                         <div class="pack-info">
                             <div class="pack-name">My Uploads</div>
-                            <div class="pack-meta">${userUploads.length} images</div>
+                            <div class="pack-meta">${userUploads.length} images · ${formatPackSize(null)}</div>
                         </div>
                         <label class="pack-active-toggle">
                             <input type="checkbox" checked disabled>
@@ -7187,7 +7271,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         </div>
                         <div class="pack-info">
                             <div class="pack-name">${pack.name}</div>
-                            <div class="pack-meta">${pack.imageCount} images${date ? ' &middot; ' + date : ''}</div>
+                            <div class="pack-meta">${pack.imageCount} images · ${formatPackSize(pack.packId)}${date ? ' · ' + date : ''}</div>
                             ${pack.description ? `<div class="pack-meta" style="opacity:0.6;">${pack.description}</div>` : ''}
                             ${tags.length > 0 ? `<div class="pack-tags">${visibleTags.map(t => `<span class="pack-tag">${t}</span>`).join('')}${hiddenTags.length > 0 ? `<span class="pack-tags-hidden" id="packHiddenTags${packIdx}" style="display:none;">${hiddenTags.map(t => `<span class="pack-tag">${t}</span>`).join('')}</span><button class="pack-tags-toggle" onclick="togglePackTags(${packIdx}, this)">+${hiddenTags.length} more</button>` : ''}</div>` : ''}
                         </div>
@@ -7248,7 +7332,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             packDetailImages = images;
             document.getElementById('packDetailName').textContent = pack.name;
             document.getElementById('packDetailDesc').textContent = pack.description || '';
-            document.getElementById('packDetailMeta').textContent = `${images.length} images | Created: ${pack.createdAt ? new Date(pack.createdAt).toLocaleDateString() : 'Unknown'}`;
+            document.getElementById('packDetailMeta').textContent = `${images.length} images · ${formatPackSize(packId)} · Created: ${pack.createdAt ? new Date(pack.createdAt).toLocaleDateString() : 'Unknown'}`;
 
             const grid = document.getElementById('packDetailGrid');
             grid.innerHTML = images.map((img, idx) => {
