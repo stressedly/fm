@@ -133,9 +133,10 @@
             font-size: 2em;
             color: #FFB6C1;
             opacity: 0.3;
-            animation: sparkle 3s infinite;
+            animation: sparkle 6s infinite;
             pointer-events: none;
             z-index: 0;
+            will-change: transform, opacity;
         }
 
         /* Anime girl decorations */
@@ -183,7 +184,6 @@
             border-radius: 25px;
             box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3);
             border: 2px solid rgba(138, 43, 226, 0.4);
-            backdrop-filter: blur(10px);
             position: relative;
         }
 
@@ -194,7 +194,8 @@
             left: 20px;
             font-size: 2em;
             color: #b19cd9;
-            animation: sparkle 2s infinite;
+            animation: sparkle 4s infinite;
+            will-change: transform, opacity;
         }
 
         .header::after {
@@ -204,7 +205,8 @@
             right: 20px;
             font-size: 2em;
             color: #FF69B4;
-            animation: sparkle 2s infinite 1s;
+            animation: sparkle 4s infinite 1s;
+            will-change: transform, opacity;
         }
 
         h1 {
@@ -361,7 +363,6 @@
             margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3);
             border: 2px solid rgba(138, 43, 226, 0.4);
-            backdrop-filter: blur(10px);
         }
 
         .upload-section h2 {
@@ -470,7 +471,8 @@
             font-size: 2em;
             opacity: 0.3;
             z-index: 2;
-            animation: sparkle 2s infinite;
+            animation: sparkle 4s infinite;
+            will-change: transform, opacity;
         }
 
         .battle-card:hover {
@@ -481,7 +483,7 @@
 
         .battle-card:hover::before {
             opacity: 0.8;
-            animation: sparkle 1s infinite;
+            animation: sparkle 2s infinite;
         }
 
         /* Winner animation - glows, scales up, shines */
@@ -585,7 +587,6 @@
             padding: 25px;
             box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3);
             border: 2px solid rgba(138, 43, 226, 0.4);
-            backdrop-filter: blur(10px);
         }
 
         .leaderboard h2 {
@@ -1143,8 +1144,8 @@
             padding: 15px;
             border: 2px solid rgba(138, 43, 226, 0.4);
             box-shadow: 0 4px 20px rgba(138, 43, 226, 0.2);
-            backdrop-filter: blur(10px);
             transition: all 0.3s ease;
+            contain: layout style;
         }
 
         .pack-card:hover {
@@ -1513,8 +1514,9 @@
         .sparkle {
             position: fixed;
             pointer-events: none;
-            animation: sparkleFloat 2s ease-out forwards;
+            animation: sparkleFloat 1.5s ease-out forwards;
             font-size: 24px;
+            will-change: transform, opacity;
         }
 
         @keyframes sparkleFloat {
@@ -1537,6 +1539,7 @@
             margin-bottom: 8px;
             border: 1px solid rgba(138, 43, 226, 0.2);
             transition: all 0.2s;
+            contain: layout style;
         }
         .history-item:hover {
             background: rgba(30, 30, 40, 0.7);
@@ -1654,6 +1657,7 @@
             border: 2px solid rgba(138, 43, 226, 0.3);
             transition: all 0.2s ease;
             position: relative;
+            contain: layout style;
         }
 
         .pack-detail-image-card:hover {
@@ -1721,7 +1725,7 @@
             inset: 0;
             background-size: cover;
             background-position: center;
-            filter: blur(40px) brightness(0.25) saturate(1.5);
+            filter: blur(20px) brightness(0.25) saturate(1.3);
             transform: scale(1.2);
             z-index: 0;
         }
@@ -2481,7 +2485,6 @@
             font-weight: 700;
             padding: 2px 10px;
             border-radius: 10px;
-            backdrop-filter: blur(4px);
             white-space: nowrap;
         }
         .multi-battle-card.winner-selected {
@@ -3818,7 +3821,17 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 this.storageLimit = 500 * 1024 * 1024;
                 this.ready = false;
                 this._dataCache = new Map(); // LRU cache for image data
-                this._dataCacheMax = 150;
+                this._dataCacheMax = 250;
+                this._imageMap = new Map(); // id → image meta for O(1) lookups
+            }
+
+            _rebuildImageMap() {
+                this._imageMap.clear();
+                for (const img of this.images) this._imageMap.set(img.id, img);
+            }
+
+            getImageById(id) {
+                return this._imageMap.get(id) || null;
             }
 
             async getImageData(id) {
@@ -3844,6 +3857,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async init() {
                 await this.storage.init();
                 this.images = await this.storage.getAllImagesMeta();
+                this._rebuildImageMap();
                 try {
                     await this.loadPacks();
                 } catch (e) {
@@ -3945,7 +3959,9 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const count = await this.storage.deleteImagesByPackId(packId);
                 await this.storage.deletePack(packId);
                 this.images = this.images.filter(img => img.packId !== packId);
+                this._rebuildImageMap();
                 this.packs = this.packs.filter(p => p.packId !== packId);
+                this._invalidateActiveCache();
                 await updateStorageInfo();
                 console.log(`Removed pack and ${count} images`);
             }
@@ -3955,6 +3971,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (pack) {
                     pack.isActive = isActive;
                     await this.storage.savePack(pack);
+                    this._invalidateActiveCache();
                 }
             }
 
@@ -4046,6 +4063,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     this._dataCache.set(id, dataUrl);
                     const { data: _d, ...meta } = image;
                     this.images.push(meta);
+                    this._imageMap.set(meta.id, meta);
+                    this._invalidateActiveCache();
                     await updateStorageInfo();
                     return true;
                 } catch (e) {
@@ -4058,13 +4077,15 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             async removeImage(imageId) {
                 await this.storage.deleteImage(imageId);
                 this.images = this.images.filter(img => img.id !== imageId);
+                this._imageMap.delete(imageId);
                 this._dataCache.delete(imageId);
+                this._invalidateActiveCache();
                 await updateStorageInfo();
             }
 
             async updateRatings(winnerId, loserId) {
-                const winner = this.images.find(img => img.id === winnerId);
-                const loser = this.images.find(img => img.id === loserId);
+                const winner = this.getImageById(winnerId);
+                const loser = this.getImageById(loserId);
                 if (!winner || !loser) return;
 
                 const K = 32;
@@ -4088,6 +4109,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 await this._saveImageUpdate(winner);
                 await this._saveImageUpdate(loser);
+                this._invalidateActiveCache();
 
                 // Persist history entry
                 const entry = {
@@ -4116,8 +4138,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (!entry) return null;
 
                 const { prev } = entry;
-                const winner = this.images.find(img => img.id === prev.winnerId);
-                const loser = this.images.find(img => img.id === prev.loserId);
+                const winner = this.getImageById(prev.winnerId);
+                const loser = this.getImageById(prev.loserId);
 
                 if (winner) {
                     winner.rating = prev.winnerRating;
@@ -4133,10 +4155,17 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 }
 
                 await this.storage.deleteHistoryEntry(entry.id);
+                this._invalidateActiveCache();
                 return entry;
             }
 
+            _invalidateActiveCache() {
+                this._activeCacheDirty = true;
+                this._leaderboardCacheDirty = true;
+            }
+
             _getActiveImages() {
+                if (!this._activeCacheDirty && this._activeCache) return this._activeCache;
                 // Get images from active packs + unassigned images (packId null)
                 const activePackIds = new Set(this.packs.filter(p => p.isActive).map(p => p.packId));
                 let filtered = this.images.filter(img => {
@@ -4151,6 +4180,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     );
                 }
 
+                this._activeCache = filtered;
+                this._activeCacheDirty = false;
                 return filtered;
             }
 
@@ -4238,8 +4269,11 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
 
             getLeaderboard() {
+                if (!this._leaderboardCacheDirty && this._leaderboardCache) return this._leaderboardCache;
                 const active = this._getActiveImages();
-                return [...active].sort((a, b) => b.rating - a.rating);
+                this._leaderboardCache = [...active].sort((a, b) => b.rating - a.rating);
+                this._leaderboardCacheDirty = false;
+                return this._leaderboardCache;
             }
 
             async clear() {
@@ -4247,6 +4281,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 this.images = [];
                 this.packs = [];
                 this._dataCache.clear();
+                this._imageMap.clear();
+                this._invalidateActiveCache();
                 await updateStorageInfo();
             }
 
@@ -5275,8 +5311,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             container.innerHTML = html;
         }
 
+        let _tagSearchDebounce = 0;
         document.getElementById('tagSearchInput').addEventListener('input', (e) => {
-            renderTagSearchResults(e.target.value);
+            clearTimeout(_tagSearchDebounce);
+            _tagSearchDebounce = setTimeout(() => renderTagSearchResults(e.target.value), 120);
         });
 
         document.getElementById('tagSearchClose').addEventListener('click', closeTagSearch);
@@ -5291,6 +5329,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             } else {
                 activeTagFilters.add(tag);
             }
+            db._invalidateActiveCache();
 
             // Re-render the search results if dialog is open
             const overlay = document.getElementById('tagSearchOverlay');
@@ -5309,6 +5348,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
         function clearTagFilters() {
             activeTagFilters.clear();
+            db._invalidateActiveCache();
 
             const overlay = document.getElementById('tagSearchOverlay');
             if (overlay.classList.contains('active')) {
@@ -5483,7 +5523,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const rect = element.getBoundingClientRect();
             const sparkles = ['★', '✦', '✧', '◆', '◇'];
 
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 5; i++) {
                 const sparkle = document.createElement('div');
                 sparkle.className = 'sparkle';
                 sparkle.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
@@ -5491,7 +5531,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 sparkle.style.top = (rect.top + Math.random() * rect.height) + 'px';
                 sparkle.style.color = '#bb86fc';
                 document.body.appendChild(sparkle);
-                setTimeout(() => sparkle.remove(), 2000);
+                setTimeout(() => sparkle.remove(), 1500);
             }
         }
 
@@ -5831,8 +5871,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             list.innerHTML = entries.map(b => {
                 const time = new Date(b.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const date = new Date(b.timestamp).toLocaleDateString();
-                const winMeta = db.images.find(i => i.id === b.winnerId);
-                const loseMeta = db.images.find(i => i.id === b.loserId);
+                const winMeta = db.getImageById(b.winnerId);
+                const loseMeta = db.getImageById(b.loserId);
                 return `
                 <div class="history-item">
                     ${mediaHTML(winMeta || {id: b.winnerId}, 'class="history-thumb winner" alt="Winner"')}
@@ -5964,7 +6004,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Render match cards
             let html = '';
             for (const m of matches) {
-                const img = db.images.find(i => i.id === m.imageId);
+                const img = db.getImageById(m.imageId);
                 const pct = Math.round(m.score * 100);
                 const tags = (img && img.tags) ? img.tags.join(', ') : '';
                 html += `
@@ -6207,7 +6247,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                          ondragover="event.preventDefault();this.classList.add('drag-over')"
                          ondragleave="this.classList.remove('drag-over')"
                          ondrop="tierDrop(event,'${tier.label}')">
-                        ${ids.map(id => { const meta = db.images.find(i => i.id === id); const isV = isVideoRecord(meta); const tag = isV ? 'video' : 'img'; const vA = isV ? ' muted loop playsinline autoplay' : ''; return `<${tag} data-image-id="${id}" data-id="${id}" draggable="true"${vA} ondragstart="tierDragStart(event,${id},'${tier.label}')" ondragend="this.classList.remove('dragging')" alt="" src=""></${tag}>`; }).join('')}
+                        ${ids.map(id => { const meta = db.getImageById(id); const isV = isVideoRecord(meta); const tag = isV ? 'video' : 'img'; const vA = isV ? ' muted loop playsinline autoplay' : ''; return `<${tag} data-image-id="${id}" data-id="${id}" draggable="true"${vA} ondragstart="tierDragStart(event,${id},'${tier.label}')" ondragend="this.classList.remove('dragging')" alt="" src=""></${tag}>`; }).join('')}
                     </div>
                 </div>`;
             }).join('');
@@ -6287,7 +6327,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 for (const id of ids) {
                     const data = imgMap[id];
                     if (!data) { x += IMG_SIZE + PAD; continue; }
-                    const meta = db.images.find(i => i.id === id);
+                    const meta = db.getImageById(id);
                     if (isVideoRecord(meta)) {
                         // Draw video frame to canvas
                         await new Promise(resolve => {
@@ -6647,18 +6687,32 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             renderTags('');
         }
 
-        function getTagsByPopularity() {
-            const tagCounts = {};
+        let _tagPopularityCache = null;
+        let _tagImageIndex = null; // tag → [img, ...] for O(1) lookup
+        function _invalidateTagCache() { _tagPopularityCache = null; _tagImageIndex = null; }
+        function _buildTagImageIndex() {
+            if (_tagImageIndex) return _tagImageIndex;
+            _tagImageIndex = {};
             for (const img of db.images) {
                 if (img.tags) {
                     for (const t of img.tags) {
-                        tagCounts[t] = (tagCounts[t] || 0) + 1;
+                        (_tagImageIndex[t] || (_tagImageIndex[t] = [])).push(img);
                     }
                 }
             }
-            return Object.entries(tagCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([tag, count]) => ({ tag, count }));
+            return _tagImageIndex;
+        }
+        function getTagsByPopularity() {
+            if (_tagPopularityCache) return _tagPopularityCache;
+            const idx = _buildTagImageIndex();
+            _tagPopularityCache = Object.entries(idx)
+                .map(([tag, imgs]) => ({ tag, count: imgs.length }))
+                .sort((a, b) => b.count - a.count);
+            return _tagPopularityCache;
+        }
+        function getImagesForTag(tag) {
+            const idx = _buildTagImageIndex();
+            return idx[tag] || [];
         }
 
         let tagsAcIndex = -1;
@@ -6762,7 +6816,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             let html = '';
             for (const { tag, count } of display) {
-                const images = db.images.filter(img => (img.tags || []).includes(tag));
+                const images = getImagesForTag(tag);
                 const thumbs = images.slice(0, 4);
                 html += `
                     <div class="pack-card" onclick="viewTagDetail('${tag.replace(/'/g, "\\'")}')" style="cursor:pointer;">
@@ -6965,20 +7019,22 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
 
         async function removeTagFromImage(imageId, tag) {
-            const img = db.images.find(i => i.id === imageId);
+            const img = db.getImageById(imageId);
             if (!img) return;
             img.tags = (img.tags || []).filter(t => t !== tag);
+            _invalidateTagCache();
             await db._saveImageUpdate(img);
         }
 
         async function addTagToImage(imageId, tag) {
             if (!tag) return;
-            const img = db.images.find(i => i.id === imageId);
+            const img = db.getImageById(imageId);
             if (!img) return;
             if (!img.tags) img.tags = [];
             tag = tag.trim().toLowerCase();
             if (!img.tags.includes(tag)) {
                 img.tags.push(tag);
+                _invalidateTagCache();
                 await db._saveImageUpdate(img);
             }
         }
@@ -7008,7 +7064,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             let acIdx = -1;
 
             function getImgTags() {
-                const img = db.images.find(i => i.id === imageId);
+                const img = db.getImageById(imageId);
                 return img ? (img.tags || []) : [];
             }
 
@@ -7828,9 +7884,11 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 preview.style.top = y + 'px';
             }
 
+            let _moveRaf = 0;
             function movePreview(e) {
                 if (preview.classList.contains('visible')) {
-                    positionPreview(e);
+                    if (_moveRaf) return;
+                    _moveRaf = requestAnimationFrame(() => { _moveRaf = 0; positionPreview(e); });
                 }
             }
 
