@@ -2500,65 +2500,78 @@
             box-shadow: 0 0 8px rgba(138,43,226,0.4);
         }
 
-        /* === STATS VIEW === */
-        .stats-section { margin-bottom: 28px; }
-        .stats-section h3 {
-            color: #bb86fc;
-            font-size: 0.85em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 0 0 14px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(138,43,226,0.2);
+        /* === GALLERY VIEW === */
+        .gallery-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
         }
-        .stat-bar-row {
+        .gallery-controls select, .gallery-controls input {
+            background: rgba(30,30,50,0.9);
+            color: #e0d4f5;
+            border: 1px solid rgba(138,43,226,0.4);
+            border-radius: 10px;
+            padding: 7px 14px;
+            font-family: inherit;
+            font-size: 0.85em;
+            outline: none;
+        }
+        .gallery-controls select:focus, .gallery-controls input:focus {
+            border-color: #bb86fc;
+        }
+        .gallery-controls label {
+            color: #b19cd9;
+            font-size: 0.82em;
             display: flex;
             align-items: center;
+            gap: 5px;
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 10px;
-            margin-bottom: 6px;
-            font-size: 0.85em;
         }
-        .stat-bar-label { color: #b19cd9; min-width: 60px; text-align: right; }
-        .stat-bar-track {
-            flex: 1;
-            height: 14px;
-            background: rgba(138,43,226,0.12);
-            border-radius: 7px;
+        .gallery-card {
+            position: relative;
+            border-radius: 10px;
             overflow: hidden;
+            background: rgba(30,30,50,0.7);
+            border: 1px solid rgba(138,43,226,0.2);
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.2s;
         }
-        .stat-bar-fill {
-            height: 100%;
-            border-radius: 7px;
-            background: linear-gradient(90deg, #5f3dc4, #bb86fc);
-            transition: width 0.4s ease;
+        .gallery-card:hover {
+            transform: scale(1.03);
+            border-color: rgba(138,43,226,0.6);
         }
-        .stat-bar-count { color: #e0d4f5; min-width: 36px; font-size: 0.9em; }
-        .stat-cards-row {
-            display: flex; flex-wrap: wrap; gap: 12px;
-            justify-content: center;
+        .gallery-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
         }
-        .stat-card {
-            background: rgba(138,43,226,0.1);
-            border: 1px solid rgba(138,43,226,0.3);
-            border-radius: 12px;
-            padding: 14px 18px;
-            min-width: 100px;
-            flex: 1;
-            max-width: 160px;
+        .gallery-card-info {
+            padding: 5px 8px 7px;
+            font-size: 0.72em;
+            color: #b19cd9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .gallery-card-rating {
+            color: #bb86fc;
+            font-weight: 700;
+        }
+        .gallery-count {
+            color: #b19cd9;
+            font-size: 0.82em;
             text-align: center;
+            margin-bottom: 14px;
+            opacity: 0.7;
         }
-        .stat-card-value { font-size: 1.6em; font-weight: 700; color: #bb86fc; }
-        .stat-card-label { font-size: 0.75em; color: #b19cd9; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .controversy-row, .streak-row {
-            display: flex; align-items: center; gap: 12px;
-            padding: 8px 0; border-bottom: 1px solid rgba(138,43,226,0.1);
-        }
-        .controversy-row img, .streak-row img {
-            width: 48px; height: 48px; object-fit: cover;
-            border-radius: 8px; flex-shrink: 0;
-        }
-        .controversy-info { flex: 1; font-size: 0.85em; }
-        .controversy-bar { height: 6px; border-radius: 3px; margin-top: 4px; }
 
         /* === TIER LIST === */
         .tier-row {
@@ -2915,8 +2928,8 @@
                 <span>History<span class="jp">履歴</span></span>
                 <span class="kbd-hint">H</span>
             </button>
-            <button onclick="showStatsView()">
-                <span>Stats<span class="jp">統計</span></span>
+            <button onclick="showGalleryView()">
+                <span>Gallery<span class="jp">ギャラリー</span></span>
                 <span class="kbd-hint">D</span>
             </button>
             <button onclick="showTierListView()">
@@ -3076,15 +3089,39 @@
             </div>
         </div>
 
-        <!-- Stats View -->
-        <div id="statsView" class="hidden">
+        <!-- Gallery View -->
+        <div id="galleryView" class="hidden">
             <div style="background: rgba(30, 30, 40, 0.95); border-radius: 15px; padding: 25px; border: 2px solid rgba(138, 43, 226, 0.4);">
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
-                    Stats <span style="font-size:0.5em; opacity:0.5;">統計</span>
+                    Gallery <span style="font-size:0.5em; opacity:0.5;">ギャラリー</span>
                     <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
                     <button onclick="showTierListView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Tier List</button>
                 </h2>
-                <div id="statsContent"></div>
+                <div class="gallery-controls">
+                    <label>Sort:
+                        <select id="gallerySortBy" onchange="renderGallery()">
+                            <option value="rating-desc">Rating (High → Low)</option>
+                            <option value="rating-asc">Rating (Low → High)</option>
+                            <option value="wins-desc">Wins (Most)</option>
+                            <option value="losses-desc">Losses (Most)</option>
+                            <option value="matches-desc">Matches (Most)</option>
+                            <option value="matches-asc">Matches (Least)</option>
+                            <option value="winrate-desc">Win Rate (Best)</option>
+                            <option value="winrate-asc">Win Rate (Worst)</option>
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </label>
+                    <label>Pack:
+                        <select id="galleryFilterPack" onchange="renderGallery()">
+                            <option value="all">All</option>
+                        </select>
+                    </label>
+                    <input type="text" id="gallerySearch" placeholder="Search tags..." oninput="renderGallery()" style="min-width:120px;">
+                </div>
+                <div id="galleryCount" class="gallery-count"></div>
+                <div id="galleryGrid" class="gallery-grid"></div>
             </div>
         </div>
 
@@ -3094,7 +3131,7 @@
                 <h2 style="color: #bb86fc; text-align: center; margin-bottom: 20px;">
                     Tier List <span style="font-size:0.5em; opacity:0.5;">ティアリスト</span>
                     <button onclick="showLeaderboard()" style="float:right;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Rankings</button>
-                    <button onclick="showStatsView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Stats</button>
+                    <button onclick="showGalleryView()" style="float:right;margin-right:8px;background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:5px 14px;border-radius:12px;font-size:0.6em;cursor:pointer;font-family:inherit;font-weight:600;">Gallery</button>
                 </h2>
                 <p style="color:#b19cd9;font-size:0.82em;text-align:center;margin:0 0 18px;opacity:0.8;">Drag images between tiers to adjust. Auto-generated from Elo ratings.</p>
                 <div id="tierListContent"></div>
@@ -3152,7 +3189,7 @@
                 <p id="packDetailMeta" style="margin-top:4px;"></p>
             </div>
             <div style="display:flex;gap:8px;">
-                <button onclick="uploadImagesToPack(currentViewingPackId)"><span>Add Images<span class="jp">画像追加</span></span></button>
+                <button onclick="if(currentViewingPackId === '__user_uploads__') { closePackDetail(); showUploadSection(); } else { uploadImagesToPack(currentViewingPackId); }"><span>Add Images<span class="jp">画像追加</span></span></button>
                 <button onclick="closePackDetail()"><span>Close<span class="jp">閉じる</span></span></button>
             </div>
         </div>
@@ -4696,212 +4733,162 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             });
         }
 
-        // === Minimal GIF89a Encoder (animated, 256-color median-cut quantization) ===
-        const GIFEncoder = (() => {
-            function quantize(pixels, maxColors) {
-                // Median-cut quantization to maxColors
-                const buckets = [pixels.slice()];
-                while (buckets.length < maxColors) {
-                    let bestIdx = 0, bestRange = -1;
-                    for (let i = 0; i < buckets.length; i++) {
-                        const b = buckets[i];
-                        if (b.length < 2) continue;
-                        let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
-                        for (let j = 0; j < b.length; j++) {
-                            const p = b[j];
-                            if(p[0]<minR)minR=p[0]; if(p[0]>maxR)maxR=p[0];
-                            if(p[1]<minG)minG=p[1]; if(p[1]>maxG)maxG=p[1];
-                            if(p[2]<minB)minB=p[2]; if(p[2]>maxB)maxB=p[2];
-                        }
-                        const range = Math.max(maxR-minR, maxG-minG, maxB-minB);
-                        if (range > bestRange) { bestRange = range; bestIdx = i; }
-                    }
-                    const bucket = buckets[bestIdx];
-                    if (bucket.length < 2) break;
-                    let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
-                    for (const p of bucket) {
-                        if(p[0]<minR)minR=p[0]; if(p[0]>maxR)maxR=p[0];
-                        if(p[1]<minG)minG=p[1]; if(p[1]>maxG)maxG=p[1];
-                        if(p[2]<minB)minB=p[2]; if(p[2]>maxB)maxB=p[2];
-                    }
-                    const rr=maxR-minR,gr=maxG-minG,br=maxB-minB;
-                    const ch = rr>=gr&&rr>=br?0:gr>=br?1:2;
-                    bucket.sort((a,b) => a[ch]-b[ch]);
-                    const mid = bucket.length >> 1;
-                    buckets[bestIdx] = bucket.slice(0, mid);
-                    buckets.push(bucket.slice(mid));
-                }
-                return buckets.map(b => {
-                    let r=0,g=0,bl=0;
-                    for (const p of b) { r+=p[0]; g+=p[1]; bl+=p[2]; }
-                    const n = b.length || 1;
-                    return [Math.round(r/n), Math.round(g/n), Math.round(bl/n)];
+        // === Animated WebP Encoder (RIFF container, full-color, high-fps) ===
+        const WebPEncoder = (() => {
+            // Convert canvas to a WebP blob at given quality
+            function canvasToWebPBlob(canvas, quality) {
+                return new Promise((res, rej) => {
+                    canvas.toBlob(b => b ? res(b) : rej(new Error('WebP encode failed')), 'image/webp', quality);
                 });
             }
-
-            function nearestColor(palette, r, g, b) {
-                let best = 0, bestD = Infinity;
-                for (let i = 0; i < palette.length; i++) {
-                    const d = (r-palette[i][0])**2 + (g-palette[i][1])**2 + (b-palette[i][2])**2;
-                    if (d < bestD) { bestD = d; best = i; }
-                }
-                return best;
+            // Read blob as ArrayBuffer
+            function blobToArrayBuffer(blob) {
+                return new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload = () => res(r.result);
+                    r.onerror = rej;
+                    r.readAsArrayBuffer(blob);
+                });
             }
+            // Write a 32-bit little-endian value into a DataView
+            function w32(dv, off, val) { dv.setUint32(off, val, true); }
+            // Write a 16-bit little-endian value
+            function w16(dv, off, val) { dv.setUint16(off, val, true); }
+            // Write ASCII string
+            function wStr(dv, off, str) { for (let i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i)); }
 
-            function lzwEncode(indexStream, minCodeSize) {
-                const out = [];
-                const clearCode = 1 << minCodeSize;
-                const eoiCode = clearCode + 1;
-                let codeSize = minCodeSize + 1;
-                let nextCode = eoiCode + 1;
-                const table = new Map();
-                for (let i = 0; i < clearCode; i++) table.set(String(i), i);
-
-                let buffer = 0, bufBits = 0;
-                function writeBits(code, size) {
-                    buffer |= (code << bufBits);
-                    bufBits += size;
-                    while (bufBits >= 8) { out.push(buffer & 0xff); buffer >>= 8; bufBits -= 8; }
-                }
-
-                writeBits(clearCode, codeSize);
-                let current = String(indexStream[0]);
-                for (let i = 1; i < indexStream.length; i++) {
-                    const next = String(indexStream[i]);
-                    const combined = current + ',' + next;
-                    if (table.has(combined)) {
-                        current = combined;
-                    } else {
-                        writeBits(table.get(current), codeSize);
-                        if (nextCode < 4096) {
-                            table.set(combined, nextCode++);
-                            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
-                        } else {
-                            writeBits(clearCode, codeSize);
-                            codeSize = minCodeSize + 1;
-                            nextCode = eoiCode + 1;
-                            table.clear();
-                            for (let j = 0; j < clearCode; j++) table.set(String(j), j);
+            // Build an animated WebP from an array of { webpBytes: Uint8Array, durationMs: number }
+            // Returns Uint8Array of the full animated WebP file
+            function encode(frameDataArr, width, height, loopCount) {
+                // Extract VP8/VP8L bitstream from each single-frame WebP
+                const bitstreams = frameDataArr.map(fd => {
+                    const buf = fd.webpBytes;
+                    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+                    // Skip RIFF header (12 bytes), find VP8 or VP8L chunk
+                    let off = 12;
+                    while (off < buf.length - 8) {
+                        const tag = String.fromCharCode(buf[off], buf[off+1], buf[off+2], buf[off+3]);
+                        const chunkSize = dv.getUint32(off + 4, true);
+                        if (tag === 'VP8 ' || tag === 'VP8L') {
+                            return { tag, data: buf.slice(off, off + 8 + chunkSize + (chunkSize & 1)) };
                         }
-                        current = next;
+                        off += 8 + chunkSize + (chunkSize & 1);
                     }
-                }
-                writeBits(table.get(current), codeSize);
-                writeBits(eoiCode, codeSize);
-                if (bufBits > 0) out.push(buffer & 0xff);
+                    throw new Error('No VP8/VP8L chunk found');
+                });
+
+                // Build ANMF chunks
+                const anmfChunks = bitstreams.map((bs, i) => {
+                    const durMs = frameDataArr[i].durationMs;
+                    // ANMF payload: 16 bytes header + bitstream data
+                    const payloadSize = 16 + bs.data.length;
+                    const chunkSize = payloadSize;
+                    const totalSize = 8 + chunkSize + (chunkSize & 1); // chunk header + payload + padding
+                    const chunk = new Uint8Array(totalSize);
+                    const cdv = new DataView(chunk.buffer);
+                    wStr(cdv, 0, 'ANMF');
+                    w32(cdv, 4, chunkSize);
+                    // Frame X, Y offsets (24-bit each, divided by 2)
+                    cdv.setUint8(8, 0); cdv.setUint8(9, 0); cdv.setUint8(10, 0); // X/2
+                    cdv.setUint8(11, 0); cdv.setUint8(12, 0); cdv.setUint8(13, 0); // Y/2
+                    // Frame width-1, height-1 (24-bit each)
+                    const wm1 = width - 1, hm1 = height - 1;
+                    cdv.setUint8(14, wm1 & 0xff); cdv.setUint8(15, (wm1 >> 8) & 0xff); cdv.setUint8(16, (wm1 >> 16) & 0xff);
+                    cdv.setUint8(17, hm1 & 0xff); cdv.setUint8(18, (hm1 >> 8) & 0xff); cdv.setUint8(19, (hm1 >> 16) & 0xff);
+                    // Duration (24-bit LE)
+                    cdv.setUint8(20, durMs & 0xff); cdv.setUint8(21, (durMs >> 8) & 0xff); cdv.setUint8(22, (durMs >> 16) & 0xff);
+                    // Flags: no blending, no dispose
+                    cdv.setUint8(23, 0);
+                    // Bitstream data
+                    chunk.set(bs.data, 24);
+                    return chunk;
+                });
+
+                // VP8X chunk (10 bytes payload)
+                const vp8xPayload = 10;
+                const vp8xChunk = new Uint8Array(8 + vp8xPayload);
+                const vp8xDv = new DataView(vp8xChunk.buffer);
+                wStr(vp8xDv, 0, 'VP8X');
+                w32(vp8xDv, 4, vp8xPayload);
+                // Flags: bit 1 = animation
+                vp8xDv.setUint8(8, 0x02);
+                vp8xDv.setUint8(9, 0); vp8xDv.setUint8(10, 0); vp8xDv.setUint8(11, 0);
+                // Canvas width-1 (24-bit)
+                const cw1 = width - 1, ch1 = height - 1;
+                vp8xDv.setUint8(12, cw1 & 0xff); vp8xDv.setUint8(13, (cw1 >> 8) & 0xff); vp8xDv.setUint8(14, (cw1 >> 16) & 0xff);
+                // Canvas height-1 (24-bit)
+                vp8xDv.setUint8(15, ch1 & 0xff); vp8xDv.setUint8(16, (ch1 >> 8) & 0xff); vp8xDv.setUint8(17, (ch1 >> 16) & 0xff);
+
+                // ANIM chunk (6 bytes payload)
+                const animChunk = new Uint8Array(8 + 6);
+                const animDv = new DataView(animChunk.buffer);
+                wStr(animDv, 0, 'ANIM');
+                w32(animDv, 4, 6);
+                w32(animDv, 8, 0x00000000); // bg color
+                w16(animDv, 12, loopCount);  // loop count (0 = infinite)
+
+                // Assemble RIFF file
+                let totalPayload = 4 + vp8xChunk.length + animChunk.length; // 'WEBP' + VP8X + ANIM
+                for (const c of anmfChunks) totalPayload += c.length;
+                const fileSize = 8 + totalPayload; // RIFF header + payload
+                const out = new Uint8Array(fileSize);
+                const dv = new DataView(out.buffer);
+                wStr(dv, 0, 'RIFF');
+                w32(dv, 4, totalPayload);
+                wStr(dv, 8, 'WEBP');
+                let pos = 12;
+                out.set(vp8xChunk, pos); pos += vp8xChunk.length;
+                out.set(animChunk, pos); pos += animChunk.length;
+                for (const c of anmfChunks) { out.set(c, pos); pos += c.length; }
                 return out;
             }
-
-            function writeSubBlocks(bytes) {
-                const result = [];
-                for (let i = 0; i < bytes.length; ) {
-                    const len = Math.min(255, bytes.length - i);
-                    result.push(len);
-                    for (let j = 0; j < len; j++) result.push(bytes[i++]);
-                }
-                result.push(0); // terminator
-                return result;
-            }
-
-            function encode(frames, width, height, delay) {
-                // Sample pixels from all frames for palette
-                const allPixels = [];
-                const sampleStep = Math.max(1, Math.floor((frames.length * width * height) / 10000));
-                let si = 0;
-                for (const frame of frames) {
-                    for (let i = 0; i < frame.length; i += 4) {
-                        if (si++ % sampleStep === 0) allPixels.push([frame[i], frame[i+1], frame[i+2]]);
-                    }
-                }
-                const palette = quantize(allPixels, 256);
-                while (palette.length < 256) palette.push([0,0,0]);
-
-                const minCodeSize = 8;
-                const out = [];
-                const w = (b) => out.push(b);
-                const w2 = (v) => { out.push(v & 0xff); out.push((v >> 8) & 0xff); };
-
-                // Header
-                [0x47,0x49,0x46,0x38,0x39,0x61].forEach(w); // GIF89a
-                w2(width); w2(height);
-                w(0xf7); // GCT flag, 256 colors (2^(7+1))
-                w(0); w(0); // bg, aspect
-                // Global Color Table
-                for (const c of palette) { w(c[0]); w(c[1]); w(c[2]); }
-                // Netscape ext for looping
-                w(0x21); w(0xff); w(0x0b);
-                [0x4e,0x45,0x54,0x53,0x43,0x41,0x50,0x45,0x32,0x2e,0x30].forEach(w);
-                w(3); w(1); w2(0); w(0); // loop forever
-
-                const delayCs = Math.round(delay / 10);
-                for (const frame of frames) {
-                    // GCE
-                    w(0x21); w(0xf9); w(4); w(0); w2(delayCs); w(0); w(0);
-                    // Image descriptor
-                    w(0x2c); w2(0); w2(0); w2(width); w2(height); w(0);
-                    // LZW
-                    const indices = new Uint8Array(width * height);
-                    for (let i = 0, pi = 0; i < frame.length; i += 4, pi++) {
-                        indices[pi] = nearestColor(palette, frame[i], frame[i+1], frame[i+2]);
-                    }
-                    w(minCodeSize);
-                    writeSubBlocks(lzwEncode(indices, minCodeSize)).forEach(w);
-                }
-                w(0x3b); // trailer
-                return new Uint8Array(out);
-            }
-
-            return { encode };
+            return { canvasToWebPBlob, blobToArrayBuffer, encode };
         })();
 
-        // Convert a video file to an animated GIF
-        async function videoToGif(file, { maxSize = 320, maxFrames = 24, maxDuration = 4 } = {}) {
+        // Convert a video file to an animated WebP (full color, high fps, high res)
+        async function videoToWebP(file, { maxSize = 640, fps = 30, maxDuration = 8, quality = 0.85 } = {}) {
             const objUrl = URL.createObjectURL(file);
             try {
                 const video = document.createElement('video');
                 video.muted = true;
                 video.preload = 'auto';
                 video.playsInline = true;
-
-                await new Promise((res, rej) => {
-                    video.onloadeddata = res;
-                    video.onerror = rej;
-                    video.src = objUrl;
-                });
+                await new Promise((res, rej) => { video.onloadeddata = res; video.onerror = rej; video.src = objUrl; });
 
                 const vw = video.videoWidth || 640;
                 const vh = video.videoHeight || 480;
+                // Keep original resolution up to maxSize
                 const scale = Math.min(1, maxSize / Math.max(vw, vh));
                 const w = Math.round(vw * scale);
                 const h = Math.round(vh * scale);
                 const duration = Math.min(video.duration || 2, maxDuration);
-                const numFrames = Math.min(maxFrames, Math.max(6, Math.round(duration * 8)));
+                const numFrames = Math.max(6, Math.round(duration * fps));
                 const interval = duration / numFrames;
+                const delayMs = Math.round(interval * 1000);
+
                 const canvas = document.createElement('canvas');
-                canvas.width = w;
-                canvas.height = h;
+                canvas.width = w; canvas.height = h;
                 const ctx = canvas.getContext('2d');
 
-                const frames = [];
+                const frameDataArr = [];
                 for (let i = 0; i < numFrames; i++) {
                     video.currentTime = i * interval;
                     await new Promise(r => { video.onseeked = r; });
                     ctx.drawImage(video, 0, 0, w, h);
-                    frames.push(new Uint8Array(ctx.getImageData(0, 0, w, h).data));
-                    // Yield every 4 frames
+                    const blob = await WebPEncoder.canvasToWebPBlob(canvas, quality);
+                    const ab = await WebPEncoder.blobToArrayBuffer(blob);
+                    frameDataArr.push({ webpBytes: new Uint8Array(ab), durationMs: delayMs });
                     if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
                 }
 
-                const delayMs = Math.round(interval * 1000);
-                const gifBytes = GIFEncoder.encode(frames, w, h, delayMs);
-                const blob = new Blob([gifBytes], { type: 'image/gif' });
+                const webpBytes = WebPEncoder.encode(frameDataArr, w, h, 0);
+                const webpBlob = new Blob([webpBytes], { type: 'image/webp' });
                 const dataUrl = await new Promise((res, rej) => {
                     const reader = new FileReader();
                     reader.onload = () => res(reader.result);
                     reader.onerror = rej;
-                    reader.readAsDataURL(blob);
+                    reader.readAsDataURL(webpBlob);
                 });
-
                 return { dataUrl, width: w, height: h, type: 'image' };
             } finally {
                 URL.revokeObjectURL(objUrl);
@@ -4909,7 +4896,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         }
 
         function readMediaFile(file) {
-            return isVideoFile(file) ? videoToGif(file) : readImageLossless(file);
+            return isVideoFile(file) ? videoToWebP(file) : readImageLossless(file);
         }
 
         // --- Duplicate Detection Utilities ---
@@ -6181,7 +6168,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (lower === 'i') { e.preventDefault(); importData(); return; }
                 if (lower === 'x') { e.preventDefault(); clearAll(); return; }
                 if (lower === 't') { e.preventDefault(); showTagsView(); return; }
-                if (lower === 'd') { e.preventDefault(); showStatsView(); return; }
+                if (lower === 'd') { e.preventDefault(); showGalleryView(); return; }
 
                 // Battle view shortcuts
                 if (currentView === 'battle' && db.currentPair) {
@@ -6332,7 +6319,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             document.getElementById('historyView').classList.add('hidden');
             document.getElementById('packsView').classList.add('hidden');
             document.getElementById('tagsView').classList.add('hidden');
-            document.getElementById('statsView').classList.add('hidden');
+            document.getElementById('galleryView').classList.add('hidden');
             document.getElementById('tierListView').classList.add('hidden');
             stopSlideshowTimer();
         }
@@ -6365,12 +6352,15 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             renderHistory();
         }
 
-        function showStatsView() {
+        function showGalleryView() {
             hideAllViews();
-            document.getElementById('statsView').classList.remove('hidden');
-            currentView = 'stats';
-            renderStats();
+            document.getElementById('galleryView').classList.remove('hidden');
+            currentView = 'gallery';
+            populateGalleryPackFilter();
+            renderGallery();
         }
+        // Keep alias for backward compat
+        function showStatsView() { showGalleryView(); }
 
         function showTierListView() {
             hideAllViews();
@@ -6635,94 +6625,86 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             }
         }
 
-        // ========== STATS DASHBOARD ==========
-        function renderStats() {
-            const images = db.images.filter(img => !img.excluded);
-            const content = document.getElementById('statsContent');
+        // ========== GALLERY ==========
+        let galleryImages = []; // sorted/filtered array for preview navigation
+
+        function populateGalleryPackFilter() {
+            const sel = document.getElementById('galleryFilterPack');
+            if (!sel) return;
+            const cur = sel.value;
+            let opts = '<option value="all">All</option><option value="uploads">My Uploads</option>';
+            db.packs.forEach(p => {
+                opts += `<option value="${p.packId}">${p.name || p.packId}</option>`;
+            });
+            sel.innerHTML = opts;
+            sel.value = cur || 'all';
+        }
+
+        function renderGallery() {
+            const grid = document.getElementById('galleryGrid');
+            const countEl = document.getElementById('galleryCount');
+            let images = db.images.filter(img => !img.excluded);
+
+            // Filter by pack
+            const packFilter = document.getElementById('galleryFilterPack')?.value || 'all';
+            if (packFilter === 'uploads') {
+                images = images.filter(img => !img.packId);
+            } else if (packFilter !== 'all') {
+                images = images.filter(img => img.packId === packFilter);
+            }
+
+            // Filter by search (tags)
+            const search = (document.getElementById('gallerySearch')?.value || '').trim().toLowerCase();
+            if (search) {
+                images = images.filter(img => (img.tags || []).some(t => t.toLowerCase().includes(search)));
+            }
+
+            // Sort
+            const sortBy = document.getElementById('gallerySortBy')?.value || 'rating-desc';
+            switch (sortBy) {
+                case 'rating-desc': images.sort((a, b) => b.rating - a.rating); break;
+                case 'rating-asc': images.sort((a, b) => a.rating - b.rating); break;
+                case 'wins-desc': images.sort((a, b) => (b.wins || 0) - (a.wins || 0)); break;
+                case 'losses-desc': images.sort((a, b) => (b.losses || 0) - (a.losses || 0)); break;
+                case 'matches-desc': images.sort((a, b) => (b.battles || 0) - (a.battles || 0)); break;
+                case 'matches-asc': images.sort((a, b) => (a.battles || 0) - (b.battles || 0)); break;
+                case 'winrate-desc': images.sort((a, b) => {
+                    const wr = i => i.battles ? (i.wins || 0) / i.battles : 0;
+                    return wr(b) - wr(a);
+                }); break;
+                case 'winrate-asc': images.sort((a, b) => {
+                    const wr = i => i.battles ? (i.wins || 0) / i.battles : 0;
+                    return wr(a) - wr(b);
+                }); break;
+                case 'newest': images.sort((a, b) => (b.id || 0) - (a.id || 0)); break;
+                case 'oldest': images.sort((a, b) => (a.id || 0) - (b.id || 0)); break;
+                case 'random': images.sort(() => Math.random() - 0.5); break;
+            }
+
+            galleryImages = images;
+            countEl.textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
+
             if (images.length === 0) {
-                content.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No data yet -- start battling</p>';
+                grid.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No images found</p>';
                 return;
             }
 
-            const totalBattles = images.reduce((s, i) => s + (i.battles || 0), 0) / 2 | 0;
-            const ratings = images.map(i => i.rating);
-            const minR = Math.min(...ratings), maxR = Math.max(...ratings);
-            const avgR = (ratings.reduce((s, v) => s + v, 0) / ratings.length) | 0;
-
-            // Rating histogram: 10 buckets
-            const buckets = 10;
-            const bucketSize = Math.max(1, Math.ceil((maxR - minR + 1) / buckets));
-            const hist = Array(buckets).fill(0);
-            ratings.forEach(r => { const b = Math.min(buckets - 1, (r - minR) / bucketSize | 0); hist[b]++; });
-            const histMax = Math.max(...hist);
-
-            // Win-rate for controversy (closest to 50%)
-            const battled = images.filter(i => i.battles >= 5).sort((a, b) => {
-                const aWr = Math.abs((a.wins || 0) / a.battles - 0.5);
-                const bWr = Math.abs((b.wins || 0) / b.battles - 0.5);
-                return aWr - bWr;
-            }).slice(0, 5);
-
-            // Biggest upset: low-rated beat high-rated
-            // Approximate from low battles + high rating vs many losses
-            const highestRated = [...images].sort((a, b) => b.rating - a.rating).slice(0, 5);
-            const lowestBattled = [...images].filter(i => i.battles > 0).sort((a, b) => a.battles - b.battles).slice(0, 5);
-
-            let html = `
-                <div class="stats-section">
-                    <div class="stat-cards-row">
-                        <div class="stat-card"><div class="stat-card-value">${images.length}</div><div class="stat-card-label">Images</div></div>
-                        <div class="stat-card"><div class="stat-card-value">${totalBattles}</div><div class="stat-card-label">Battles</div></div>
-                        <div class="stat-card"><div class="stat-card-value">${avgR}</div><div class="stat-card-label">Avg Rating</div></div>
-                        <div class="stat-card"><div class="stat-card-value">${maxR}</div><div class="stat-card-label">Peak Rating</div></div>
-                        <div class="stat-card"><div class="stat-card-value">${minR}</div><div class="stat-card-label">Floor Rating</div></div>
+            grid.innerHTML = images.map((img, idx) => {
+                const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
+                const info = img.battles ? `${wr}% · ${img.battles}b` : 'No battles';
+                return `<div class="gallery-card" onclick="openImagePreview(galleryImages, ${idx})">
+                    ${mediaHTML(img, 'alt=""')}
+                    <div class="gallery-card-info">
+                        <span class="gallery-card-rating">★ ${img.rating}</span>
+                        <span>${info}</span>
                     </div>
-                </div>
-                <div class="stats-section">
-                    <h3>Rating Distribution</h3>
-                    ${hist.map((count, i) => {
-                        const label = (minR + i * bucketSize) + '–' + (minR + (i + 1) * bucketSize - 1);
-                        const pct = histMax ? Math.round(count / histMax * 100) : 0;
-                        return `<div class="stat-bar-row">
-                            <div class="stat-bar-label" style="font-size:0.78em;min-width:72px;">${label}</div>
-                            <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
-                            <div class="stat-bar-count">${count}</div>
-                        </div>`;
-                    }).join('')}
                 </div>`;
-
-            if (battled.length > 0) {
-                html += `<div class="stats-section"><h3>Most Controversial <span style="font-weight:400;opacity:0.6;">(closest to 50% win rate)</span></h3>`;
-                battled.forEach(img => {
-                    const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
-                    html += `<div class="controversy-row">
-                        ${mediaHTML(img, 'alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;"')}
-                        <div class="controversy-info">
-                            <div style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battles</div>
-                            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-                                <div class="controversy-bar" style="width:${wr}%;background:#4caf50;flex:none;min-width:2px;"></div>
-                                <span style="font-size:0.82em;color:#b19cd9;">${wr}% win</span>
-                            </div>
-                        </div>
-                    </div>`;
-                });
-                html += '</div>';
-            }
-
-            if (lowestBattled.length > 0) {
-                html += `<div class="stats-section"><h3>Under-Battled <span style="font-weight:400;opacity:0.6;">(fewest battles)</span></h3>`;
-                lowestBattled.forEach(img => {
-                    html += `<div class="controversy-row">
-                        ${mediaHTML(img, 'alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;"')}
-                        <div class="controversy-info" style="color:#e0d4f5;">★ ${img.rating} &nbsp;·&nbsp; ${img.battles} battle${img.battles === 1 ? '' : 's'}</div>
-                    </div>`;
-                });
-                html += '</div>';
-            }
-
-            content.innerHTML = html;
-            observeLazyImages(content);
+            }).join('');
+            observeLazyImages(grid);
         }
+
+        // Keep alias for backward compat
+        function renderStats() { renderGallery(); }
 
         // ========== TIER LIST ==========
         const TIERS = [
@@ -7444,6 +7426,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                             <input type="checkbox" checked disabled>
                             Always active
                         </label>
+                        <div class="pack-actions">
+                            <button onclick="showUploadSection()"><span>Add Images</span></button>
+                            <button onclick="viewUserUploadsDetail()"><span>View</span></button>
+                        </div>
                     </div>
                 `;
             }
@@ -7515,6 +7501,44 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const count = hidden.querySelectorAll('.image-tag').length;
                 btn.textContent = '+' + count + ' more';
             }
+        }
+
+        async function viewUserUploadsDetail() {
+            currentViewingPackId = '__user_uploads__';
+            const images = db.images.filter(img => !img.packId);
+            packDetailImages = images;
+            document.getElementById('packDetailName').textContent = 'My Uploads';
+            document.getElementById('packDetailDesc').textContent = '';
+            document.getElementById('packDetailMeta').textContent = `${images.length} images · ${formatPackSize(null)}`;
+
+            const grid = document.getElementById('packDetailGrid');
+            grid.innerHTML = images.map((img, idx) => {
+                const tags = (img.tags || []);
+                const visible = tags.slice(0, 3);
+                const hidden = tags.slice(3);
+                const visibleHtml = visible.map(t =>
+                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}'); this.closest('.image-tag').remove()">&times;</button></span>`
+                ).join('');
+                const hiddenHtml = hidden.map(t =>
+                    `<span class="image-tag">${t}<button class="tag-remove-btn" onclick="removeTagFromImage(${img.id}, '${t.replace(/'/g, "\\'")}'); this.closest('.image-tag').remove()">&times;</button></span>`
+                ).join('');
+                const moreBtn = hidden.length > 0
+                    ? `<span class="card-tags-hidden" id="cardHiddenTags${idx}" style="display:none;">${hiddenHtml}</span><button class="pack-tags-toggle" onclick="toggleCardTags(${idx}, this)">+${hidden.length} more</button>`
+                    : '';
+                return `
+                    <div class="pack-detail-image-card">
+                        <button class="pack-img-remove-btn" onclick="removeImageFromPack(${img.id})" title="Remove image">&times;</button>
+                        ${mediaHTML(img, `alt="" onclick="openImagePreview(packDetailImages, ${idx})"`)}
+                        <div class="card-tags">
+                            ${visibleHtml}${moreBtn}
+                            <button class="add-tag-btn" onclick="showAddTagInput(${img.id}, this)">+ tag</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            observeLazyImages(grid);
+
+            document.getElementById('packDetailOverlay').classList.add('active');
         }
 
         async function viewPackDetail(packId) {
@@ -7988,7 +8012,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             if (!doRemove) return;
             const packId = currentViewingPackId;
             await db.removeImage(imageId);
-            if (packId) {
+            if (packId === '__user_uploads__') {
+                viewUserUploadsDetail();
+                renderPacks();
+            } else if (packId) {
                 await updatePackMetadata(packId);
                 viewPackDetail(packId);
                 renderPacks();
