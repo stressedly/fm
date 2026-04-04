@@ -539,6 +539,26 @@
                 height: 20px;
             }
 
+            .battle-delete-btn {
+                position: absolute; top: 6px; right: 6px;
+                width: 28px; height: 28px; border-radius: 50%;
+                background: rgba(220,53,69,0.85); border: 2px solid rgba(255,255,255,0.3);
+                color: #fff; font-size: 16px; font-weight: 700;
+                cursor: pointer; display: flex; align-items: center; justify-content: center;
+                opacity: 0; transition: opacity 0.2s, transform 0.2s;
+                transform: scale(0.8); line-height: 1; padding: 0;
+                z-index: 5;
+            }
+            .battle-card:hover .battle-delete-btn,
+            .multi-battle-card:hover .battle-delete-btn {
+                opacity: 1; transform: scale(1);
+            }
+            .battle-delete-btn:hover {
+                background: rgba(220,53,69,1);
+                box-shadow: 0 2px 10px rgba(220,53,69,0.5);
+                transform: scale(1.15);
+            }
+
             .hint {
                 text-align: center;
                 color: #b19cd9;
@@ -4544,10 +4564,25 @@
                 return `<img data-image-id="${imgMeta.id}" ${attrs}>`;
             }
 
+            // Convert a video data URL to a blob URL synchronously.
+            // Blob URLs let the browser stream/buffer the video instead of decoding the
+            // entire base64 blob upfront, which causes the Firefox/slow-PC freeze.
+            function _videoDataUrlToBlobUrl(dataUrl) {
+                try {
+                    const semi = dataUrl.indexOf(';');
+                    const mime = dataUrl.slice(5, semi); // "video/webm" etc.
+                    const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+                    const bin = atob(b64);
+                    const arr = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                    return URL.createObjectURL(new Blob([arr], { type: mime }));
+                } catch (_) {
+                    return dataUrl; // fallback: use data URL directly
+                }
+            }
+
             // Helper: set src on an element, replacing <img> with <video> when needed
-            // For video data URLs, converts to blob URL first — avoids Firefox/slow-PC freeze
-            // caused by browsers trying to decode the entire base64 blob before playing.
-            async function setMediaSrc(el, data) {
+            function setMediaSrc(el, data) {
                 if (!el || !data) return;
                 if (data.startsWith('data:video/')) {
                     let vid = el;
@@ -4562,17 +4597,11 @@
                         if (el.dataset.imageId) vid.dataset.imageId = el.dataset.imageId;
                         if (el.parentNode) el.parentNode.replaceChild(vid, el);
                     }
-                    // Revoke any previous blob URL on this element to free memory
+                    // Revoke previous blob URL on this element to free memory
                     if (vid._blobUrl) { URL.revokeObjectURL(vid._blobUrl); vid._blobUrl = null; }
-                    try {
-                        const blob = await fetch(data).then(r => r.blob());
-                        const blobUrl = URL.createObjectURL(blob);
-                        vid._blobUrl = blobUrl;
-                        vid.src = blobUrl;
-                    } catch (_) {
-                        // Fallback: set data URL directly if fetch fails
-                        vid.src = data;
-                    }
+                    const blobUrl = _videoDataUrlToBlobUrl(data);
+                    if (blobUrl !== data) vid._blobUrl = blobUrl; // track for later revocation
+                    vid.src = blobUrl;
                 } else {
                     el.src = data;
                 }
@@ -5822,6 +5851,7 @@
 
                 container.innerHTML = `
                     <div class="battle-card" data-id="${pair[0].id}" onclick="selectWinner(${pair[0].id})">
+                        <button class="battle-delete-btn" onclick="event.stopPropagation(); deleteBattleImage(${pair[0].id}, this.closest('.battle-card'))" title="Delete image">&times;</button>
                         <div class="battle-image-container">
                             <img src="" alt="" class="battle-image-bg" id="battleBg0">
                             <img src="" alt="Option 1" class="battle-image" id="battleImg0">
@@ -5835,6 +5865,7 @@
                         ${miniTags0 ? `<div class="battle-tags">${miniTags0}</div>` : ''}
                     </div>
                     <div class="battle-card" data-id="${pair[1].id}" onclick="selectWinner(${pair[1].id})">
+                        <button class="battle-delete-btn" onclick="event.stopPropagation(); deleteBattleImage(${pair[1].id}, this.closest('.battle-card'))" title="Delete image">&times;</button>
                         <div class="battle-image-container">
                             <img src="" alt="" class="battle-image-bg" id="battleBg1">
                             <img src="" alt="Option 2" class="battle-image" id="battleImg1">
@@ -5877,6 +5908,7 @@
 
                 container.innerHTML = quad.map((img, i) => {
                     return `<div class="multi-battle-card" data-id="${img.id}" onclick="selectMultiWinner(${img.id})" title="${(img.tags||[]).join(', ')}">
+                        <button class="battle-delete-btn" onclick="event.stopPropagation(); deleteBattleImage(${img.id}, this.closest('.multi-battle-card'))" title="Delete image">&times;</button>
                         <img src="" alt="Option ${i+1}" id="multiBattleImg${i}">
                         <div class="multi-rating">★ ${img.rating}</div>
                     </div>`;
@@ -5889,20 +5921,36 @@
                 });
             }
 
+            async function deleteBattleImage(imageId, cardElement) {
+                const doRemove = await showConfirm('Remove this image?', { message: 'The image will be permanently deleted.', confirmText: 'Remove', danger: true });
+                if (!doRemove) return;
+                cardElement.style.transition = 'opacity 0.3s, transform 0.3s';
+                cardElement.style.opacity = '0';
+                cardElement.style.transform = 'scale(0.9)';
+                await new Promise(r => setTimeout(r, 300));
+                await db.removeImage(imageId);
+                renderBattle();
+            }
+
             async function selectWinner(winnerId) {
                 if (!db.currentPair) return;
                 if (multiBattleMode) { selectMultiWinner(winnerId); return; }
 
-                const winner = db.currentPair.find(img => img.id === winnerId);
-                const loser = db.currentPair.find(img => img.id !== winnerId);
-                const winnerCard = document.querySelector(`[data-id="${winnerId}"]`);
+                // Prefer strict match, fall back to string comparison to guard against
+                // float precision loss when the id round-trips through an HTML attribute.
+                const winner = db.currentPair.find(img => img.id === winnerId)
+                            || db.currentPair.find(img => String(img.id) === String(winnerId));
+                const loser = db.currentPair.find(img => img !== winner);
+                if (!winner || !loser) return;
+
+                const winnerCard = document.querySelector(`[data-id="${winner.id}"]`);
                 const loserCard = document.querySelector(`[data-id="${loser.id}"]`);
 
                 if (winnerCard) winnerCard.classList.add('winner-selected');
                 if (loserCard) loserCard.classList.add('loser-dismissed');
 
                 createSparkles(winnerCard);
-                await db.updateRatings(winnerId, loser.id);
+                await db.updateRatings(winner.id, loser.id);
 
                 const undoBtn = document.getElementById('undoBtn');
                 if (undoBtn) undoBtn.style.display = '';
@@ -5912,19 +5960,20 @@
 
             async function selectMultiWinner(winnerId) {
                 if (!db.currentPair) return;
-                const winner = db.currentPair.find(img => img.id === winnerId);
+                const winner = db.currentPair.find(img => img.id === winnerId)
+                            || db.currentPair.find(img => String(img.id) === String(winnerId));
                 if (!winner) return;
 
-                const winnerCard = document.querySelector(`[data-id="${winnerId}"]`);
+                const winnerCard = document.querySelector(`[data-id="${winner.id}"]`);
                 if (winnerCard) winnerCard.classList.add('winner-selected');
                 createSparkles(winnerCard);
 
                 // Winner beats all other 3 — generate 3 history entries
-                const losers = db.currentPair.filter(img => img.id !== winnerId);
+                const losers = db.currentPair.filter(img => img !== winner);
                 for (const loser of losers) {
                     const loserCard = document.querySelector(`[data-id="${loser.id}"]`);
                     if (loserCard) loserCard.classList.add('loser-dismissed');
-                    await db.updateRatings(winnerId, loser.id);
+                    await db.updateRatings(winner.id, loser.id);
                 }
 
                 const undoBtn = document.getElementById('undoBtn');
