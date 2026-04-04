@@ -2194,6 +2194,115 @@
                 border: 1px solid rgba(76, 175, 80, 0.3);
             }
 
+            /* === TAGFARE MODE === */
+            .tagfare-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+                width: 100%;
+                max-width: 520px;
+                margin: 0 auto;
+            }
+            .tagfare-image-wrap {
+                position: relative;
+                width: 100%;
+                border-radius: 16px;
+                overflow: hidden;
+                background: rgba(20,20,30,0.6);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                aspect-ratio: 1 / 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .tagfare-image-wrap img, .tagfare-image-wrap video {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+                border-radius: 12px;
+            }
+            .tagfare-tag-count {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(20,20,30,0.85);
+                color: #b19cd9;
+                font-size: 0.75em;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 20px;
+                border: 1px solid rgba(138,43,226,0.3);
+            }
+            .tagfare-input-area {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                position: relative;
+            }
+            .tagfare-input {
+                width: 100%;
+                max-width: 360px;
+                padding: 10px 16px;
+                border-radius: 20px;
+                border: 1px solid rgba(138,43,226,0.5);
+                background: rgba(20,20,30,0.9);
+                color: #fff;
+                font-size: 1em;
+                font-family: inherit;
+                outline: none;
+                transition: border-color 0.2s, box-shadow 0.2s;
+                text-align: center;
+            }
+            .tagfare-input:focus {
+                border-color: #bb86fc;
+                box-shadow: 0 0 12px rgba(138,43,226,0.35);
+            }
+            .tagfare-input::placeholder { color: rgba(177,156,217,0.45); }
+            .tagfare-actions {
+                display: flex;
+                gap: 10px;
+            }
+            .tagfare-btn {
+                padding: 6px 18px;
+                border-radius: 15px;
+                font-size: 0.82em;
+                cursor: pointer;
+                font-family: inherit;
+                font-weight: 600;
+                border: 1px solid transparent;
+                transition: background 0.15s, opacity 0.15s;
+            }
+            .tagfare-btn-skip {
+                background: rgba(100,100,120,0.15);
+                color: #b19cd9;
+                border-color: rgba(138,43,226,0.3);
+            }
+            .tagfare-btn-skip:hover { background: rgba(138,43,226,0.2); }
+            .tagfare-btn-delete {
+                background: rgba(255,107,157,0.12);
+                color: #ff6b9d;
+                border-color: rgba(255,107,157,0.3);
+            }
+            .tagfare-btn-delete:hover { background: rgba(255,107,157,0.25); }
+            .tagfare-ac {
+                display: none;
+                position: fixed;
+                min-width: 220px;
+                max-height: 220px;
+                overflow-y: auto;
+                background: rgba(25,22,40,0.98);
+                border: 1px solid rgba(138,43,226,0.45);
+                border-radius: 10px;
+                z-index: 5000;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            }
+            .tagfare-ac.active { display: block; }
+            .tagfare-ac::-webkit-scrollbar { width: 4px; }
+            .tagfare-ac::-webkit-scrollbar-thumb { background: rgba(138,43,226,0.4); border-radius: 4px; }
+
             /* Preview tag editing */
             .preview-tag-editable {
                 display: inline-flex;
@@ -2485,6 +2594,12 @@
                 transform: scale(0.95);
             }
             #multiBattleToggle.active {
+                background: linear-gradient(135deg, #8a2be2, #5f3dc4);
+                color: white;
+                border-color: #bb86fc;
+                box-shadow: 0 0 8px rgba(138,43,226,0.4);
+            }
+            #tagfareToggle.active {
                 background: linear-gradient(135deg, #8a2be2, #5f3dc4);
                 color: white;
                 border-color: #bb86fc;
@@ -2839,6 +2954,91 @@
             .iq-actions button.iq-primary:hover {
                 background: rgba(138, 43, 226, 0.5);
             }
+        /* ========== GOONMODE ========== */
+        #goonmodeView { position: relative; }
+        #gmSetup {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            padding: 40px 24px;
+            max-width: 480px;
+            margin: 30px auto 0;
+            background: rgba(18, 16, 32, 0.97);
+            border: 2px solid rgba(244, 143, 177, 0.35);
+            border-radius: 18px;
+        }
+        #gmSetup h2 { color: #f48fb1; font-size: 1.8em; margin: 0; letter-spacing: 0.04em; }
+        .gm-field { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+        .gm-field label { color: #b19cd9; font-size: 0.85em; font-weight: 600; }
+        .gm-field select,
+        .gm-field input[type="number"] {
+            background: rgba(20, 20, 35, 0.9);
+            border: 1px solid rgba(138, 43, 226, 0.4);
+            border-radius: 10px;
+            color: #e0d6f2;
+            font-size: 0.95em;
+            font-family: inherit;
+            padding: 8px 12px;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .gm-field select:focus, .gm-field input:focus { border-color: rgba(244, 143, 177, 0.6); }
+        .gm-field input[type="file"] { color: #b19cd9; font-size: 0.85em; font-family: inherit; cursor: pointer; }
+        #gmBpmRow { width: 100%; display: none; }
+        #gmBpmDetectMsg { color: #b19cd9; font-size: 0.78em; opacity: 0.8; min-height: 1.2em; margin-top: 4px; }
+        #gmStartBtn {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: white; border: none; border-radius: 14px;
+            padding: 14px 40px; font-size: 1.1em; font-weight: 700;
+            cursor: pointer; font-family: inherit; letter-spacing: 0.05em;
+            transition: transform 0.1s, opacity 0.2s; margin-top: 8px;
+        }
+        #gmStartBtn:hover { transform: scale(1.04); }
+        #gmStartBtn:active { transform: scale(0.97); }
+        #gmStartBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        #gmSession {
+            position: fixed; inset: 0; background: #0a0a0f; z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #gmSession.hidden { display: none; }
+        #gmPhaseLabel {
+            position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); color: #e0d6f2;
+            font-size: 0.8em; font-weight: 700; letter-spacing: 0.14em;
+            padding: 6px 20px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1); z-index: 10; white-space: nowrap;
+        }
+        #gmImageWrap { position: relative; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+        @keyframes gmPulseAnim {
+            0%   { box-shadow: 0 0 0 4px var(--gm-color,#bb86fc), 0 0 50px var(--gm-color,#bb86fc); }
+            100% { box-shadow: 0 0 0 0px transparent, 0 0 0px transparent; }
+        }
+        #gmImageWrap.gm-pulse { animation: gmPulseAnim 0.45s ease-out forwards; }
+        #gmImg { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 8px; transition: opacity 0.15s; display: block; }
+        #gmRestOverlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.78);
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; z-index: 5;
+        }
+        #gmRestOverlay.hidden { display: none; }
+        #gmCountdown { font-size: 6em; font-weight: 900; color: #e0d6f2; line-height: 1; text-shadow: 0 0 50px var(--gm-color,#bb86fc); }
+        #gmProgressBar { position: fixed; bottom: 50px; left: 0; right: 0; height: 4px; background: rgba(255,255,255,0.07); z-index: 10; }
+        #gmProgressFill { height: 100%; width: 0%; background: var(--gm-color,#bb86fc); }
+        #gmControls {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 48px;
+            background: rgba(0,0,0,0.7); display: flex; align-items: center;
+            justify-content: center; gap: 12px; padding: 0 20px; z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+        #gmControls button {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+            color: #e0d6f2; border-radius: 8px; padding: 5px 14px; font-size: 1em;
+            cursor: pointer; font-family: inherit; transition: background 0.15s;
+        }
+        #gmControls button:hover { background: rgba(255,255,255,0.2); }
+        #gmBpmDisplay, #gmHoldDisplay, #gmElapsed { color: rgba(224,214,242,0.6); font-size: 0.8em; font-weight: 600; letter-spacing: 0.06em; }
         </style>
     </head>
     <body>
@@ -2903,6 +3103,10 @@
                 <button onclick="showTierListView()">
                     <span>Tier List<span class="jp">ティア</span></span>
                 </button>
+                <button onclick="showGoonmodeView()">
+                    <span>GoonMode</span>
+                    <span class="kbd-hint">G</span>
+                </button>
             </div>
 
             <div id="uploadSection" class="upload-section hidden">
@@ -2933,6 +3137,9 @@
                     </button>
                     <button id="multiBattleToggle" onclick="toggleMultiBattle()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
                         <span id="multiBattleToggleLabel">Best of 4</span> <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">M</span>
+                    </button>
+                    <button id="tagfareToggle" onclick="toggleTagfare()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
+                        Tagfare
                     </button>
                 </div>
 
@@ -3131,6 +3338,54 @@
                         <div class="empty-state-text">No tags yet <span style="font-size:0.6em; opacity:0.5;">タグなし</span></div>
                         <p style="opacity: 0.8;">Add tags to images via Packs view <span style="font-size:0.85em; opacity:0.6;">パック画面からタグを追加してね</span></p>
                     </div>
+                </div>
+            </div>
+
+            <!-- GoonMode View -->
+            <div id="goonmodeView" class="hidden">
+                <div id="gmSetup">
+                    <h2>GoonMode</h2>
+                    <div class="gm-field">
+                        <label>Source</label>
+                        <select id="gmSourcePicker"></select>
+                    </div>
+                    <div class="gm-field">
+                        <label>Beats per image</label>
+                        <select id="gmHoldBeats">
+                            <option value="2">2 beats</option>
+                            <option value="4" selected>4 beats</option>
+                            <option value="8">8 beats</option>
+                            <option value="16">16 beats</option>
+                        </select>
+                    </div>
+                    <div class="gm-field">
+                        <label>Music (optional)</label>
+                        <input type="file" id="gmMusicFile" accept="audio/*">
+                    </div>
+                    <div id="gmBpmRow">
+                        <div class="gm-field">
+                            <label>BPM</label>
+                            <input type="number" id="gmBpmInput" value="120" min="20" max="220">
+                        </div>
+                        <div id="gmBpmDetectMsg"></div>
+                    </div>
+                    <button id="gmStartBtn" onclick="GoonMode.start()">Start</button>
+                </div>
+                <div id="gmSession" class="hidden">
+                    <div id="gmPhaseLabel">INTRO</div>
+                    <div id="gmImageWrap">
+                        <img id="gmImg" alt="">
+                        <div id="gmRestOverlay" class="hidden"><span id="gmCountdown"></span></div>
+                    </div>
+                    <div id="gmProgressBar"><div id="gmProgressFill"></div></div>
+                    <div id="gmControls">
+                        <button id="gmPauseBtn" onclick="GoonMode.togglePause()">⏸</button>
+                        <button onclick="GoonMode.stop()">⏹ Stop</button>
+                        <span id="gmBpmDisplay"></span>
+                        <span id="gmHoldDisplay"></span>
+                        <span id="gmElapsed">0:00</span>
+                    </div>
+                    <audio id="gmAudio" loop></audio>
                 </div>
             </div>
 
@@ -4414,6 +4669,31 @@
                     return this.currentPair;
                 }
 
+                getTagfareImage() {
+                    const active = this._getActiveImages();
+                    if (!active.length) return null;
+
+                    // Sort by tag count ascending
+                    const sorted = [...active].sort((a, b) => (a.tags||[]).length - (b.tags||[]).length);
+
+                    // Bottom 30% (min 1) is the under-tagged pool
+                    const cutoff = Math.max(1, Math.ceil(active.length * 0.30));
+                    const pool = sorted.slice(0, cutoff);
+
+                    // Weighted random: weight = 1 / (tagCount + 1) so 0-tag images are most likely
+                    const weights = pool.map(img => 1 / ((img.tags||[]).length + 1));
+                    const totalWeight = weights.reduce((s, w) => s + w, 0);
+                    let r = Math.random() * totalWeight;
+                    let chosen = pool[pool.length - 1];
+                    for (let i = 0; i < pool.length; i++) {
+                        r -= weights[i];
+                        if (r <= 0) { chosen = pool[i]; break; }
+                    }
+
+                    this.currentTagfareImage = chosen;
+                    return chosen;
+                }
+
                 getSmartPair() {
                     const active = this._getActiveImages();
                     if (active.length < 2) return null;
@@ -4581,8 +4861,19 @@
                 }
             }
 
-            // Helper: set src on an element, replacing <img> with <video> when needed
-            function setMediaSrc(el, data) {
+            // Cache of converted blob URLs keyed by image id.
+            // After the first render, subsequent battle renders reuse the existing blob URL
+            // (no atob re-conversion) so videos appear instantly.
+            const _videoBlobCache = new Map();
+
+            function _evictVideoBlobCache(imageId) {
+                const blobUrl = _videoBlobCache.get(imageId);
+                if (blobUrl) { URL.revokeObjectURL(blobUrl); _videoBlobCache.delete(imageId); }
+            }
+
+            // Helper: set src on an element, replacing <img> with <video> when needed.
+            // Pass imageId to enable blob URL caching (instant reload on repeat renders).
+            function setMediaSrc(el, data, imageId) {
                 if (!el || !data) return;
                 if (data.startsWith('data:video/')) {
                     let vid = el;
@@ -4597,10 +4888,14 @@
                         if (el.dataset.imageId) vid.dataset.imageId = el.dataset.imageId;
                         if (el.parentNode) el.parentNode.replaceChild(vid, el);
                     }
-                    // Revoke previous blob URL on this element to free memory
-                    if (vid._blobUrl) { URL.revokeObjectURL(vid._blobUrl); vid._blobUrl = null; }
-                    const blobUrl = _videoDataUrlToBlobUrl(data);
-                    if (blobUrl !== data) vid._blobUrl = blobUrl; // track for later revocation
+                    const id = imageId != null ? imageId : (el.dataset.imageId || vid.dataset.imageId);
+                    let blobUrl;
+                    if (id != null && _videoBlobCache.has(id)) {
+                        blobUrl = _videoBlobCache.get(id);
+                    } else {
+                        blobUrl = _videoDataUrlToBlobUrl(data);
+                        if (id != null && blobUrl !== data) _videoBlobCache.set(id, blobUrl);
+                    }
                     vid.src = blobUrl;
                 } else {
                     el.src = data;
@@ -5815,8 +6110,30 @@
 
             let multiBattleMode = false;
 
+            let tagfareMode = false;
+
+            function toggleTagfare() {
+                tagfareMode = !tagfareMode;
+                if (tagfareMode) {
+                    // deactivate multi-battle
+                    multiBattleMode = false;
+                    const mbBtn = document.getElementById('multiBattleToggle');
+                    if (mbBtn) mbBtn.classList.remove('active');
+                    const mbLabel = document.getElementById('multiBattleToggleLabel');
+                    if (mbLabel) mbLabel.textContent = 'Best of 4';
+                }
+                const btn = document.getElementById('tagfareToggle');
+                if (btn) btn.classList.toggle('active', tagfareMode);
+                renderBattle();
+            }
+
             function toggleMultiBattle() {
                 multiBattleMode = !multiBattleMode;
+                if (multiBattleMode) {
+                    tagfareMode = false;
+                    const tfBtn = document.getElementById('tagfareToggle');
+                    if (tfBtn) tfBtn.classList.remove('active');
+                }
                 const btn = document.getElementById('multiBattleToggle');
                 if (btn) btn.classList.toggle('active', multiBattleMode);
                 const label = document.getElementById('multiBattleToggleLabel');
@@ -5829,7 +6146,9 @@
                 const container = document.getElementById('battleContainer');
                 const emptyBattle = document.getElementById('emptyBattle');
 
-                if (multiBattleMode) {
+                if (tagfareMode) {
+                    await renderTagfareBattle(container, emptyBattle);
+                } else if (multiBattleMode) {
                     await renderMultiBattle(container, emptyBattle);
                 } else {
                     await renderDuelBattle(container, emptyBattle);
@@ -5890,10 +6209,10 @@
                 const el0 = document.getElementById('battleImg0');
                 const bg1 = document.getElementById('battleBg1');
                 const el1 = document.getElementById('battleImg1');
-                setMediaSrc(bg0, data0);
-                setMediaSrc(el0, data0);
-                setMediaSrc(bg1, data1);
-                setMediaSrc(el1, data1);
+                setMediaSrc(bg0, data0, pair[0].id);
+                setMediaSrc(el0, data0, pair[0].id);
+                setMediaSrc(bg1, data1, pair[1].id);
+                setMediaSrc(el1, data1, pair[1].id);
             }
 
             async function renderMultiBattle(container, emptyBattle) {
@@ -5917,8 +6236,51 @@
                 const dataArr = await Promise.all(quad.map(img => db.getImageData(img.id)));
                 dataArr.forEach((data, i) => {
                     const el = document.getElementById(`multiBattleImg${i}`);
-                    if (el && data) setMediaSrc(el, data);
+                    if (el && data) setMediaSrc(el, data, quad[i].id);
                 });
+            }
+
+            async function renderTagfareBattle(container, emptyBattle) {
+                const img = db.getTagfareImage();
+                if (!img) {
+                    container.innerHTML = '';
+                    emptyBattle.classList.remove('hidden');
+                    return;
+                }
+                emptyBattle.classList.add('hidden');
+                container.className = '';
+
+                const tagCount = (img.tags || []).length;
+                const tagLabel = tagCount === 1 ? '1 tag' : `${tagCount} tags`;
+
+                container.innerHTML = `
+                    <div class="tagfare-card">
+                        <div class="tagfare-image-wrap">
+                            <img id="tagfareImg" src="" alt="">
+                            <span class="tagfare-tag-count">${tagLabel}</span>
+                        </div>
+                        <div class="tagfare-input-area">
+                            <input
+                                id="tagfareInput"
+                                class="tagfare-input"
+                                type="text"
+                                placeholder="Type a tag and press Enter…"
+                                autocomplete="off"
+                            >
+                            <div id="tagfareAc" class="tagfare-ac"></div>
+                            <div class="tagfare-actions">
+                                <button class="tagfare-btn tagfare-btn-skip" onclick="tagfareSkip()">Skip</button>
+                                <button class="tagfare-btn tagfare-btn-delete" onclick="tagfareDelete(${img.id})">Delete image</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const data = await db.getImageData(img.id);
+                const el = document.getElementById('tagfareImg');
+                if (el && data) setMediaSrc(el, data, img.id);
+
+                setupTagfareInput(img.id);
             }
 
             async function deleteBattleImage(imageId, cardElement) {
@@ -5929,7 +6291,130 @@
                 cardElement.style.transform = 'scale(0.9)';
                 await new Promise(r => setTimeout(r, 300));
                 await db.removeImage(imageId);
+                _evictVideoBlobCache(imageId);
                 renderBattle();
+            }
+
+            function tagfareSkip() {
+                renderBattle();
+            }
+
+            async function tagfareDelete(imageId) {
+                const doRemove = await showConfirm('Delete this image?', { message: 'The image will be permanently deleted.', confirmText: 'Delete', danger: true });
+                if (!doRemove) return;
+                await db.removeImage(imageId);
+                _evictVideoBlobCache(imageId);
+                renderBattle();
+            }
+
+            async function tagfareSubmitTag(imageId, tag) {
+                tag = tag.trim().toLowerCase();
+                if (!tag) return;
+                await addTagToImage(imageId, tag);
+                renderBattle();
+            }
+
+            function setupTagfareInput(imageId) {
+                const input = document.getElementById('tagfareInput');
+                const acEl = document.getElementById('tagfareAc');
+                if (!input || !acEl) return;
+
+                let acIdx = -1;
+
+                function getImgTags() {
+                    const img = db.getImageById(imageId);
+                    return img ? (img.tags || []) : [];
+                }
+
+                function positionAc() {
+                    const rect = input.getBoundingClientRect();
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    if (spaceBelow < 230) {
+                        acEl.style.top = '';
+                        acEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+                    } else {
+                        acEl.style.bottom = '';
+                        acEl.style.top = (rect.bottom + 4) + 'px';
+                    }
+                    acEl.style.left = rect.left + 'px';
+                    acEl.style.minWidth = Math.max(220, rect.width) + 'px';
+                }
+
+                function renderAc() {
+                    const q = input.value.trim().toLowerCase();
+                    const imgTags = getImgTags();
+                    const all = getTagsByPopularity();
+                    const matches = (q
+                        ? all.filter(t => t.tag.toLowerCase().includes(q) && !imgTags.includes(t.tag))
+                        : all.filter(t => !imgTags.includes(t.tag))
+                    ).slice(0, 8);
+
+                    let html = '';
+                    for (const t of matches) {
+                        html += `<div class="inline-tag-ac-item" data-tag="${t.tag.replace(/"/g, '&quot;')}">${t.tag}<span class="ac-count">${t.count}</span></div>`;
+                    }
+                    if (q && !all.some(t => t.tag.toLowerCase() === q) && !imgTags.includes(q)) {
+                        html += `<div class="inline-tag-ac-item" data-tag="${q.replace(/"/g, '&quot;')}">${q} <span class="ac-new-badge">new</span></div>`;
+                    }
+                    if (!html) {
+                        html = q
+                            ? '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No matches</div>'
+                            : '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No more tags</div>';
+                    }
+                    acEl.innerHTML = html;
+                    positionAc();
+                    acEl.classList.add('active');
+                    acIdx = -1;
+                    acEl.querySelectorAll('.inline-tag-ac-item[data-tag]').forEach(el => {
+                        el.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            tagfareSubmitTag(imageId, el.dataset.tag);
+                        });
+                    });
+                }
+
+                function updateSel() {
+                    const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                    items.forEach((el, i) => el.classList.toggle('selected', i === acIdx));
+                    if (items[acIdx]) items[acIdx].scrollIntoView({ block: 'nearest' });
+                }
+
+                input.addEventListener('input', renderAc);
+                input.addEventListener('focus', renderAc);
+                input.addEventListener('keydown', (e) => {
+                    e.stopPropagation();
+                    const items = acEl.querySelectorAll('.inline-tag-ac-item[data-tag]');
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        acIdx = Math.min(acIdx + 1, items.length - 1);
+                        updateSel();
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        acIdx = Math.max(acIdx - 1, -1);
+                        updateSel();
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (acIdx >= 0 && items[acIdx]) {
+                            tagfareSubmitTag(imageId, items[acIdx].dataset.tag);
+                        } else {
+                            const q = input.value.trim().toLowerCase();
+                            if (q) tagfareSubmitTag(imageId, q);
+                        }
+                    } else if (e.key === 'Escape') {
+                        input.value = '';
+                        acEl.classList.remove('active');
+                    } else if (e.key === 'Tab' && items.length > 0) {
+                        e.preventDefault();
+                        tagfareSubmitTag(imageId, items[acIdx >= 0 ? acIdx : 0].dataset.tag);
+                    }
+                });
+
+                input.addEventListener('blur', () => {
+                    setTimeout(() => acEl.classList.remove('active'), 150);
+                });
+
+                input.focus();
+                renderAc();
             }
 
             async function selectWinner(winnerId) {
@@ -6122,6 +6607,7 @@
                     if (lower === 'x') { e.preventDefault(); clearAll(); return; }
                     if (lower === 't') { e.preventDefault(); showTagsView(); return; }
                     if (lower === 'd') { e.preventDefault(); showGalleryView(); return; }
+                    if (lower === 'g') { e.preventDefault(); showGoonmodeView(); return; }
 
                     // Battle view shortcuts
                     if (currentView === 'battle' && db.currentPair) {
@@ -6274,6 +6760,8 @@
                 document.getElementById('tagsView').classList.add('hidden');
                 document.getElementById('galleryView').classList.add('hidden');
                 document.getElementById('tierListView').classList.add('hidden');
+                document.getElementById('goonmodeView').classList.add('hidden');
+                if (typeof GoonMode !== 'undefined') GoonMode.stop();
                 stopSlideshowTimer();
             }
 
@@ -6320,6 +6808,13 @@
                 document.getElementById('tierListView').classList.remove('hidden');
                 currentView = 'tierlist';
                 renderTierList();
+            }
+
+            function showGoonmodeView() {
+                hideAllViews();
+                document.getElementById('goonmodeView').classList.remove('hidden');
+                currentView = 'goonmode';
+                GoonMode.init();
             }
 
             async function renderHistory() {
@@ -6493,7 +6988,7 @@
                 for (const m of matches) {
                     const data = await db.getImageData(m.imageId);
                     const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} [data-image-id]`);
-                    if (imgEl && data) setMediaSrc(imgEl, data);
+                    if (imgEl && data) setMediaSrc(imgEl, data, m.imageId);
                 }
 
                 // Accept all high confidence
@@ -6714,7 +7209,7 @@
                 // Load thumbnails
                 for (const img of images) {
                     const data = await db.getImageData(img.id);
-                    content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) setMediaSrc(el, data); });
+                    content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) setMediaSrc(el, data, img.id); });
                 }
             }
 
@@ -8001,6 +8496,7 @@
                 if (!doRemove) return;
                 const packId = currentViewingPackId;
                 await db.removeImage(imageId);
+                _evictVideoBlobCache(imageId);
                 if (packId === '__user_uploads__') {
                     viewUserUploadsDetail();
                     renderPacks();
@@ -8285,7 +8781,7 @@
                             el.onclick = function() { toggleCreatePackImage(this, newImg.id); };
                             grid.appendChild(el);
                             // Load data from cache
-                            db.getImageData(newImg.id).then(data => { if (data) setMediaSrc(el, data); });
+                            db.getImageData(newImg.id).then(data => { if (data) setMediaSrc(el, data, newImg.id); });
                         }
                     } catch (err) {
                         console.error('Error saving image to create pack:', err);
@@ -8489,6 +8985,293 @@
                     startSlideshowTimer();
                 }
             }
+
+            // ========== GOONMODE ==========
+
+            async function gmDetectBPM(file) {
+                const msgEl = document.getElementById('gmBpmDetectMsg');
+                msgEl.textContent = 'Analyzing beat...';
+                document.getElementById('gmStartBtn').disabled = true;
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    let audioBuffer;
+                    try {
+                        audioBuffer = await tmpCtx.decodeAudioData(arrayBuffer);
+                    } finally {
+                        tmpCtx.close();
+                    }
+                    const data = audioBuffer.getChannelData(0);
+                    const sr = audioBuffer.sampleRate;
+                    const maxSamples = Math.min(data.length, sr * 90); // analyze first 90s
+                    const winSize = Math.floor(sr * 0.01);             // 10ms windows
+                    const numWins = Math.floor(maxSamples / winSize);
+                    // Compute RMS energy per window
+                    const energy = new Float32Array(numWins);
+                    for (let i = 0; i < numWins; i++) {
+                        let sum = 0;
+                        for (let j = 0; j < winSize; j++) { const v = data[i * winSize + j]; sum += v * v; }
+                        energy[i] = Math.sqrt(sum / winSize);
+                    }
+                    // Autocorrelation over BPM range 55–185
+                    const wps = 100; // windows per second
+                    const minLag = Math.round(wps * 60 / 185);
+                    const maxLag = Math.round(wps * 60 / 55);
+                    let bestLag = minLag, bestCorr = -Infinity;
+                    for (let lag = minLag; lag <= maxLag; lag++) {
+                        let corr = 0;
+                        const n = numWins - lag;
+                        for (let i = 0; i < n; i++) corr += energy[i] * energy[i + lag];
+                        corr /= n;
+                        if (corr > bestCorr) { bestCorr = corr; bestLag = lag; }
+                    }
+                    const bpm = Math.round(wps * 60 / bestLag);
+                    const clamped = Math.max(55, Math.min(185, bpm));
+                    document.getElementById('gmBpmInput').value = clamped;
+                    msgEl.textContent = `Detected: ${clamped} BPM`;
+                } catch (e) {
+                    msgEl.textContent = 'Could not detect BPM — enter manually';
+                } finally {
+                    document.getElementById('gmStartBtn').disabled = false;
+                }
+            }
+
+            const GoonMode = {
+                queue: [], queueIdx: 0,
+                beatCount: 0, segIdx: -1, loopCount: 0,
+                session: [], interval: null, countdownTimer: null,
+                elapsed: 0, elapsedTimer: null,
+                paused: false, holdBeats: 4, segElapsed: 0,
+                _musicObjectUrl: null,
+
+                ARC_PATTERNS: [
+                    ['intro','build','drop','breakdown','build','drop','climax','rest'],
+                    ['intro','build','drop','drop','breakdown','build','climax','rest'],
+                    ['build','drop','breakdown','drop','rest'],
+                ],
+                SEGMENT_DEFS: {
+                    intro:     { bpm:[40,50],   dur:[30,60], color:'#4fc3f7' },
+                    build:     { bpm:[55,75],   dur:[20,40], color:'#ce93d8' },
+                    drop:      { bpm:[90,130],  dur:[20,45], color:'#f48fb1' },
+                    breakdown: { bpm:[30,45],   dur:[15,30], color:'#4fc3f7' },
+                    climax:    { bpm:[120,150], dur:[15,30], color:'#ef5350' },
+                    rest:      { bpm:null,      dur:[8,15],  color:'#424242' },
+                },
+
+                rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
+
+                generateSession() {
+                    const arc = this.ARC_PATTERNS[this.rand(0, this.ARC_PATTERNS.length - 1)];
+                    return arc.map(type => {
+                        const def = this.SEGMENT_DEFS[type];
+                        return { type, bpm: def.bpm ? this.rand(def.bpm[0], def.bpm[1]) : null,
+                                 duration: this.rand(def.dur[0], def.dur[1]), color: def.color };
+                    });
+                },
+
+                init() {
+                    const picker = document.getElementById('gmSourcePicker');
+                    picker.innerHTML = '<option value="all">All images</option>';
+                    const packIds = [...new Set(db.images.map(i => i.packId).filter(Boolean))];
+                    packIds.forEach(packId => {
+                        const o = document.createElement('option');
+                        o.value = 'pack:' + packId;
+                        const meta = db.getPackById ? db.getPackById(packId) : null;
+                        o.textContent = 'Pack: ' + (meta && meta.name ? meta.name : packId.slice(0,8));
+                        picker.appendChild(o);
+                    });
+                    const tags = [...new Set(db.images.flatMap(i => i.tags || []))].sort();
+                    tags.forEach(tag => {
+                        const o = document.createElement('option');
+                        o.value = 'tag:' + tag;
+                        o.textContent = 'Tag: ' + tag;
+                        picker.appendChild(o);
+                    });
+                    // Wire music file input (remove old listener by cloning)
+                    const oldInput = document.getElementById('gmMusicFile');
+                    const newInput = oldInput.cloneNode(true);
+                    oldInput.parentNode.replaceChild(newInput, oldInput);
+                    newInput.addEventListener('change', async e => {
+                        const file = e.target.files[0];
+                        if (!file) {
+                            document.getElementById('gmBpmRow').style.display = 'none';
+                            document.getElementById('gmBpmDetectMsg').textContent = '';
+                            return;
+                        }
+                        document.getElementById('gmBpmRow').style.display = '';
+                        await gmDetectBPM(file);
+                    });
+                },
+
+                buildQueue(source) {
+                    let imgs = db.images.slice();
+                    if (source.startsWith('pack:')) {
+                        const id = source.slice(5);
+                        imgs = imgs.filter(i => i.packId === id);
+                    } else if (source.startsWith('tag:')) {
+                        const tag = source.slice(4);
+                        imgs = imgs.filter(i => (i.tags || []).includes(tag));
+                    }
+                    const ids = imgs.map(i => i.id);
+                    for (let i = ids.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [ids[i], ids[j]] = [ids[j], ids[i]];
+                    }
+                    return ids;
+                },
+
+                start() {
+                    const source = document.getElementById('gmSourcePicker').value;
+                    this.holdBeats = parseInt(document.getElementById('gmHoldBeats').value);
+                    this.queue = this.buildQueue(source);
+                    if (!this.queue.length) { alert('No images in selected source.'); return; }
+                    this.queueIdx = 0; this.beatCount = 0; this.segIdx = -1;
+                    this.loopCount = 0; this.elapsed = 0; this.paused = false;
+
+                    const fileInput = document.getElementById('gmMusicFile');
+                    const file = fileInput.files[0];
+                    if (file) {
+                        const bpm = parseInt(document.getElementById('gmBpmInput').value) || 120;
+                        this.session = [{ type:'music', bpm, duration:Infinity, color:'#ce93d8' }];
+                        if (this._musicObjectUrl) URL.revokeObjectURL(this._musicObjectUrl);
+                        this._musicObjectUrl = URL.createObjectURL(file);
+                        const audio = document.getElementById('gmAudio');
+                        audio.src = this._musicObjectUrl;
+                        audio.play();
+                    } else {
+                        this.session = this.generateSession();
+                    }
+
+                    document.getElementById('gmSetup').classList.add('hidden');
+                    document.getElementById('gmSession').classList.remove('hidden');
+
+                    this.elapsedTimer = setInterval(() => {
+                        if (this.paused) return;
+                        this.elapsed++; this.segElapsed++;
+                        const m = Math.floor(this.elapsed / 60), s = this.elapsed % 60;
+                        document.getElementById('gmElapsed').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+                        const seg = this.session[this.segIdx >= 0 ? this.segIdx : 0];
+                        if (this.segIdx >= 0 && seg && this.segElapsed >= seg.duration && seg.type !== 'rest' && seg.duration !== Infinity) {
+                            this.nextSegment();
+                        }
+                    }, 1000);
+
+                    this.nextSegment();
+                    this.loadImage();
+                },
+
+                nextSegment() {
+                    clearInterval(this.interval);
+                    const prevIdx = this.segIdx;
+                    this.segIdx = (this.segIdx + 1) % this.session.length;
+                    if (this.segIdx === 0 && prevIdx >= 0) this.loopCount++;
+                    this.segElapsed = 0;
+                    const seg = this.session[this.segIdx];
+                    const roundLabel = this.loopCount > 0 ? ` • Round ${this.loopCount + 1}` : '';
+                    document.getElementById('gmPhaseLabel').textContent = seg.type.toUpperCase() + roundLabel;
+                    document.documentElement.style.setProperty('--gm-color', seg.color);
+                    if (seg.type === 'rest') { this.startRest(seg.duration); return; }
+                    document.getElementById('gmBpmDisplay').textContent = `${seg.bpm} BPM`;
+                    document.getElementById('gmHoldDisplay').textContent = `♩ ×${this.holdBeats}`;
+                    const intervalMs = Math.round(60000 / seg.bpm);
+                    this.beatCount = 0;
+                    this.interval = setInterval(() => this.tick(intervalMs), intervalMs);
+                },
+
+                startRest(duration) {
+                    document.getElementById('gmBpmDisplay').textContent = 'REST';
+                    document.getElementById('gmHoldDisplay').textContent = '';
+                    const overlay = document.getElementById('gmRestOverlay');
+                    overlay.classList.remove('hidden');
+                    let remaining = duration;
+                    document.getElementById('gmCountdown').textContent = remaining;
+                    this.countdownTimer = setInterval(() => {
+                        if (this.paused) return;
+                        remaining--;
+                        document.getElementById('gmCountdown').textContent = remaining;
+                        if (remaining <= 0) {
+                            clearInterval(this.countdownTimer);
+                            overlay.classList.add('hidden');
+                            this.nextSegment();
+                        }
+                    }, 1000);
+                },
+
+                tick(intervalMs) {
+                    if (this.paused) return;
+                    this.beatCount++;
+                    this.pulse();
+                    this.animateProgressBar(intervalMs);
+                    if (this.beatCount % this.holdBeats === 0) this.advanceImage();
+                },
+
+                pulse() {
+                    const wrap = document.getElementById('gmImageWrap');
+                    wrap.classList.remove('gm-pulse');
+                    void wrap.offsetWidth;
+                    wrap.classList.add('gm-pulse');
+                },
+
+                animateProgressBar(intervalMs) {
+                    const fill = document.getElementById('gmProgressFill');
+                    fill.style.transition = 'none';
+                    fill.style.width = '0%';
+                    requestAnimationFrame(() => {
+                        fill.style.transition = `width ${intervalMs}ms linear`;
+                        fill.style.width = '100%';
+                    });
+                },
+
+                advanceImage() {
+                    this.queueIdx = (this.queueIdx + 1) % this.queue.length;
+                    if (this.queueIdx === 0) {
+                        for (let i = this.queue.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
+                        }
+                    }
+                    this.loadImage();
+                },
+
+                loadImage() {
+                    const img = document.getElementById('gmImg');
+                    img.style.opacity = '0';
+                    const id = this.queue[this.queueIdx];
+                    db.getImageData(id).then(data => {
+                        if (!data) return;
+                        setMediaSrc(img, data);
+                        img.onload = () => { img.style.transition = 'opacity 0.15s'; img.style.opacity = '1'; };
+                        // video elements won't fire onload — fade in via timeout
+                        if (data.startsWith('data:video/')) setTimeout(() => { img.style.opacity = '1'; }, 80);
+                    });
+                },
+
+                togglePause() {
+                    this.paused = !this.paused;
+                    document.getElementById('gmPauseBtn').textContent = this.paused ? '▶' : '⏸';
+                    const audio = document.getElementById('gmAudio');
+                    this.paused ? audio.pause() : (audio.src ? audio.play() : null);
+                },
+
+                stop() {
+                    if (this.interval === null && this.elapsedTimer === null) return;
+                    clearInterval(this.interval);
+                    clearInterval(this.elapsedTimer);
+                    clearInterval(this.countdownTimer);
+                    this.interval = null; this.elapsedTimer = null; this.countdownTimer = null;
+                    const audio = document.getElementById('gmAudio');
+                    audio.pause(); audio.src = '';
+                    if (this._musicObjectUrl) { URL.revokeObjectURL(this._musicObjectUrl); this._musicObjectUrl = null; }
+                    const session = document.getElementById('gmSession');
+                    if (session) session.classList.add('hidden');
+                    const setup = document.getElementById('gmSetup');
+                    if (setup) setup.classList.remove('hidden');
+                    const overlay = document.getElementById('gmRestOverlay');
+                    if (overlay) overlay.classList.add('hidden');
+                    document.getElementById('gmPauseBtn').textContent = '⏸';
+                    this.paused = false;
+                },
+            };
 
             // Initialize app
             initApp().catch(e => console.error('Fatal init error:', e));
