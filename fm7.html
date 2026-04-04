@@ -2951,10 +2951,7 @@
                     ↩ Undo <span style="opacity:0.6;font-size:0.85em;">Ctrl+Z</span>
                 </button>
                 <button id="multiBattleToggle" onclick="toggleMultiBattle()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
-                    Pick Best of 4 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">M</span>
-                </button>
-                <button onclick="showBattleView()" style="background:rgba(138,43,226,0.15);color:#b19cd9;border:1px solid rgba(138,43,226,0.3);padding:6px 16px;border-radius:15px;font-size:0.82em;cursor:pointer;font-family:inherit;font-weight:600;">
-                    1v1 <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">S</span>
+                    <span id="multiBattleToggleLabel">Best of 4</span> <span class="kbd-hint" style="position:static;font-size:0.8em;margin-left:4px;display:inline;">M</span>
                 </button>
             </div>
 
@@ -4025,7 +4022,35 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 this.ready = true;
                 console.log('Database initialized with', this.images.length, 'images and', this.packs.length, 'packs');
+
+                // Backfill dataSize for images missing it (non-blocking)
+                this._backfillDataSize();
+
                 return this;
+            }
+
+            async _backfillDataSize() {
+                const missing = this.images.filter(img => !img.dataSize);
+                if (missing.length === 0) return;
+                console.log(`Backfilling dataSize for ${missing.length} images…`);
+                let updated = 0;
+                for (let i = 0; i < missing.length; i++) {
+                    const meta = missing[i];
+                    try {
+                        const full = await this.storage.getImage(meta.id);
+                        if (full && full.data) {
+                            meta.dataSize = full.data.length;
+                            full.dataSize = meta.dataSize;
+                            await this.storage.updateImage(full);
+                            updated++;
+                        }
+                    } catch (e) {
+                        // Skip failures silently
+                    }
+                    // Yield every 5 to avoid blocking
+                    if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+                }
+                if (updated > 0) console.log(`Backfilled dataSize for ${updated} images`);
             }
 
             // --- Pack methods ---
@@ -4488,6 +4513,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 for (let i = 0; i < data.images.length; i++) {
                     const image = data.images[i];
                     if (!image.packId) image.packId = null;
+                    if (!image.dataSize && image.data) image.dataSize = image.data.length;
                     await this.storage.saveImage(image);
                     if (onProgress && (i + 1) % 10 === 0) {
                         onProgress(i + 1);
@@ -4524,21 +4550,13 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
         let currentView = 'battle';
         let activeTagFilters = new Set();
 
-        // Helper: is this image record a video?
-        function isVideoRecord(imgMeta) {
-            return imgMeta && imgMeta.type === 'video';
-        }
-
-        // Helper: generate HTML tag for an image or video element
+        // Helper: generate HTML tag for an image element
         function mediaHTML(imgMeta, extraAttrs) {
             const attrs = extraAttrs || '';
-            if (isVideoRecord(imgMeta)) {
-                return `<video data-image-id="${imgMeta.id}" muted loop playsinline autoplay ${attrs}></video>`;
-            }
             return `<img data-image-id="${imgMeta.id}" ${attrs}>`;
         }
 
-        // Helper: set src on an element (works for both img and video)
+        // Helper: set src on an element
         function setMediaSrc(el, data) {
             if (!el || !data) return;
             el.src = data;
@@ -4552,7 +4570,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const id = Number(el.dataset.imageId);
                     if (id) {
                         db.getImageData(id).then(data => {
-                            if (data) el.src = data;
+                            if (data) setMediaSrc(el, data);
                         });
                     }
                     _imageObserver.unobserve(el);
@@ -4678,32 +4696,220 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             });
         }
 
-        function readVideoFile(file) {
-            return new Promise((resolve, reject) => {
-                // Use object URL for metadata detection (more reliable than data URL)
-                const objUrl = URL.createObjectURL(file);
+        // === Minimal GIF89a Encoder (animated, 256-color median-cut quantization) ===
+        const GIFEncoder = (() => {
+            function quantize(pixels, maxColors) {
+                // Median-cut quantization to maxColors
+                const buckets = [pixels.slice()];
+                while (buckets.length < maxColors) {
+                    let bestIdx = 0, bestRange = -1;
+                    for (let i = 0; i < buckets.length; i++) {
+                        const b = buckets[i];
+                        if (b.length < 2) continue;
+                        let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+                        for (let j = 0; j < b.length; j++) {
+                            const p = b[j];
+                            if(p[0]<minR)minR=p[0]; if(p[0]>maxR)maxR=p[0];
+                            if(p[1]<minG)minG=p[1]; if(p[1]>maxG)maxG=p[1];
+                            if(p[2]<minB)minB=p[2]; if(p[2]>maxB)maxB=p[2];
+                        }
+                        const range = Math.max(maxR-minR, maxG-minG, maxB-minB);
+                        if (range > bestRange) { bestRange = range; bestIdx = i; }
+                    }
+                    const bucket = buckets[bestIdx];
+                    if (bucket.length < 2) break;
+                    let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+                    for (const p of bucket) {
+                        if(p[0]<minR)minR=p[0]; if(p[0]>maxR)maxR=p[0];
+                        if(p[1]<minG)minG=p[1]; if(p[1]>maxG)maxG=p[1];
+                        if(p[2]<minB)minB=p[2]; if(p[2]>maxB)maxB=p[2];
+                    }
+                    const rr=maxR-minR,gr=maxG-minG,br=maxB-minB;
+                    const ch = rr>=gr&&rr>=br?0:gr>=br?1:2;
+                    bucket.sort((a,b) => a[ch]-b[ch]);
+                    const mid = bucket.length >> 1;
+                    buckets[bestIdx] = bucket.slice(0, mid);
+                    buckets.push(bucket.slice(mid));
+                }
+                return buckets.map(b => {
+                    let r=0,g=0,bl=0;
+                    for (const p of b) { r+=p[0]; g+=p[1]; bl+=p[2]; }
+                    const n = b.length || 1;
+                    return [Math.round(r/n), Math.round(g/n), Math.round(bl/n)];
+                });
+            }
+
+            function nearestColor(palette, r, g, b) {
+                let best = 0, bestD = Infinity;
+                for (let i = 0; i < palette.length; i++) {
+                    const d = (r-palette[i][0])**2 + (g-palette[i][1])**2 + (b-palette[i][2])**2;
+                    if (d < bestD) { bestD = d; best = i; }
+                }
+                return best;
+            }
+
+            function lzwEncode(indexStream, minCodeSize) {
+                const out = [];
+                const clearCode = 1 << minCodeSize;
+                const eoiCode = clearCode + 1;
+                let codeSize = minCodeSize + 1;
+                let nextCode = eoiCode + 1;
+                const table = new Map();
+                for (let i = 0; i < clearCode; i++) table.set(String(i), i);
+
+                let buffer = 0, bufBits = 0;
+                function writeBits(code, size) {
+                    buffer |= (code << bufBits);
+                    bufBits += size;
+                    while (bufBits >= 8) { out.push(buffer & 0xff); buffer >>= 8; bufBits -= 8; }
+                }
+
+                writeBits(clearCode, codeSize);
+                let current = String(indexStream[0]);
+                for (let i = 1; i < indexStream.length; i++) {
+                    const next = String(indexStream[i]);
+                    const combined = current + ',' + next;
+                    if (table.has(combined)) {
+                        current = combined;
+                    } else {
+                        writeBits(table.get(current), codeSize);
+                        if (nextCode < 4096) {
+                            table.set(combined, nextCode++);
+                            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+                        } else {
+                            writeBits(clearCode, codeSize);
+                            codeSize = minCodeSize + 1;
+                            nextCode = eoiCode + 1;
+                            table.clear();
+                            for (let j = 0; j < clearCode; j++) table.set(String(j), j);
+                        }
+                        current = next;
+                    }
+                }
+                writeBits(table.get(current), codeSize);
+                writeBits(eoiCode, codeSize);
+                if (bufBits > 0) out.push(buffer & 0xff);
+                return out;
+            }
+
+            function writeSubBlocks(bytes) {
+                const result = [];
+                for (let i = 0; i < bytes.length; ) {
+                    const len = Math.min(255, bytes.length - i);
+                    result.push(len);
+                    for (let j = 0; j < len; j++) result.push(bytes[i++]);
+                }
+                result.push(0); // terminator
+                return result;
+            }
+
+            function encode(frames, width, height, delay) {
+                // Sample pixels from all frames for palette
+                const allPixels = [];
+                const sampleStep = Math.max(1, Math.floor((frames.length * width * height) / 10000));
+                let si = 0;
+                for (const frame of frames) {
+                    for (let i = 0; i < frame.length; i += 4) {
+                        if (si++ % sampleStep === 0) allPixels.push([frame[i], frame[i+1], frame[i+2]]);
+                    }
+                }
+                const palette = quantize(allPixels, 256);
+                while (palette.length < 256) palette.push([0,0,0]);
+
+                const minCodeSize = 8;
+                const out = [];
+                const w = (b) => out.push(b);
+                const w2 = (v) => { out.push(v & 0xff); out.push((v >> 8) & 0xff); };
+
+                // Header
+                [0x47,0x49,0x46,0x38,0x39,0x61].forEach(w); // GIF89a
+                w2(width); w2(height);
+                w(0xf7); // GCT flag, 256 colors (2^(7+1))
+                w(0); w(0); // bg, aspect
+                // Global Color Table
+                for (const c of palette) { w(c[0]); w(c[1]); w(c[2]); }
+                // Netscape ext for looping
+                w(0x21); w(0xff); w(0x0b);
+                [0x4e,0x45,0x54,0x53,0x43,0x41,0x50,0x45,0x32,0x2e,0x30].forEach(w);
+                w(3); w(1); w2(0); w(0); // loop forever
+
+                const delayCs = Math.round(delay / 10);
+                for (const frame of frames) {
+                    // GCE
+                    w(0x21); w(0xf9); w(4); w(0); w2(delayCs); w(0); w(0);
+                    // Image descriptor
+                    w(0x2c); w2(0); w2(0); w2(width); w2(height); w(0);
+                    // LZW
+                    const indices = new Uint8Array(width * height);
+                    for (let i = 0, pi = 0; i < frame.length; i += 4, pi++) {
+                        indices[pi] = nearestColor(palette, frame[i], frame[i+1], frame[i+2]);
+                    }
+                    w(minCodeSize);
+                    writeSubBlocks(lzwEncode(indices, minCodeSize)).forEach(w);
+                }
+                w(0x3b); // trailer
+                return new Uint8Array(out);
+            }
+
+            return { encode };
+        })();
+
+        // Convert a video file to an animated GIF
+        async function videoToGif(file, { maxSize = 320, maxFrames = 24, maxDuration = 4 } = {}) {
+            const objUrl = URL.createObjectURL(file);
+            try {
                 const video = document.createElement('video');
                 video.muted = true;
                 video.preload = 'auto';
-                video.onloadeddata = () => {
-                    const w = video.videoWidth || 640;
-                    const h = video.videoHeight || 480;
-                    // Now read the actual data URL for storage
+                video.playsInline = true;
+
+                await new Promise((res, rej) => {
+                    video.onloadeddata = res;
+                    video.onerror = rej;
+                    video.src = objUrl;
+                });
+
+                const vw = video.videoWidth || 640;
+                const vh = video.videoHeight || 480;
+                const scale = Math.min(1, maxSize / Math.max(vw, vh));
+                const w = Math.round(vw * scale);
+                const h = Math.round(vh * scale);
+                const duration = Math.min(video.duration || 2, maxDuration);
+                const numFrames = Math.min(maxFrames, Math.max(6, Math.round(duration * 8)));
+                const interval = duration / numFrames;
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+
+                const frames = [];
+                for (let i = 0; i < numFrames; i++) {
+                    video.currentTime = i * interval;
+                    await new Promise(r => { video.onseeked = r; });
+                    ctx.drawImage(video, 0, 0, w, h);
+                    frames.push(new Uint8Array(ctx.getImageData(0, 0, w, h).data));
+                    // Yield every 4 frames
+                    if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
+                }
+
+                const delayMs = Math.round(interval * 1000);
+                const gifBytes = GIFEncoder.encode(frames, w, h, delayMs);
+                const blob = new Blob([gifBytes], { type: 'image/gif' });
+                const dataUrl = await new Promise((res, rej) => {
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        URL.revokeObjectURL(objUrl);
-                        resolve({ dataUrl: e.target.result, width: w, height: h, type: 'video' });
-                    };
-                    reader.onerror = (err) => { URL.revokeObjectURL(objUrl); reject(err); };
-                    reader.readAsDataURL(file);
-                };
-                video.onerror = (err) => { URL.revokeObjectURL(objUrl); reject(err); };
-                video.src = objUrl;
-            });
+                    reader.onload = () => res(reader.result);
+                    reader.onerror = rej;
+                    reader.readAsDataURL(blob);
+                });
+
+                return { dataUrl, width: w, height: h, type: 'image' };
+            } finally {
+                URL.revokeObjectURL(objUrl);
+            }
         }
 
         function readMediaFile(file) {
-            return isVideoFile(file) ? readVideoFile(file) : readImageLossless(file);
+            return isVideoFile(file) ? videoToGif(file) : readImageLossless(file);
         }
 
         // --- Duplicate Detection Utilities ---
@@ -5116,8 +5322,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             let backfillCount = 0;
             for (let idx = 0; idx < existingImages.length; idx++) {
                 const img = existingImages[idx];
-                if (img.type === 'video') continue; // skip videos
-
                 if (img.sha256 && img.phash) {
                     existingHashes.push({ image: img, sha: img.sha256, phash: img.phash });
                 } else {
@@ -5448,6 +5652,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 // Phase 1: Read & hash files (non-blocking via yields)
                 const processed = [];
                 let readFail = 0;
+                let gifCount = 0;
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     if (!isMediaFile(file)) {
@@ -5455,18 +5660,21 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         _updateCard(card, processed.length + readFail, totalFiles, `Reading files…`);
                         continue;
                     }
+                    const isVid = isVideoFile(file);
                     try {
+                        if (isVid) {
+                            _updateCard(card, processed.length + readFail, totalFiles, `Converting video → GIF (${file.name.slice(0, 18)})…`);
+                        } else {
+                            _updateCard(card, processed.length + readFail, totalFiles, `Reading image ${i + 1}…`);
+                        }
                         const result = await readMediaFile(file);
                         result.fileName = file.name;
-                        if (result.type !== 'video') {
-                            result.sha256 = await computeImageHash(result.dataUrl);
-                            result.phash = await computePerceptualHash(result.dataUrl);
-                        } else {
-                            result.sha256 = null;
-                            result.phash = null;
-                        }
+                        if (isVid) gifCount++;
+                        _updateCard(card, processed.length + readFail, totalFiles, `Hashing ${i + 1}…`);
+                        result.sha256 = await computeImageHash(result.dataUrl);
+                        result.phash = await computePerceptualHash(result.dataUrl);
                         processed.push(result);
-                        _updateCard(card, processed.length + readFail, totalFiles, `Reading files…`);
+                        _updateCard(card, processed.length + readFail, totalFiles, `Processed ${processed.length} files…`);
                     } catch (e) {
                         console.error('Error processing file:', e);
                         readFail++;
@@ -5477,8 +5685,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
                 // Phase 2: Duplicate check
                 const existingCount = packId ? db.images.filter(img => img.packId === packId).length : db.images.length;
-                _ref(card, 'phase').textContent = `Checking ${processed.length} against ${existingCount} images…`;
-                _ref(card, 'detail').textContent = `Scanning for duplicates`;
+                _ref(card, 'phase').textContent = `Checking ${processed.length} against ${existingCount} existing…`;
+                _ref(card, 'detail').textContent = gifCount > 0 ? `${processed.length} images (${gifCount} from video)` : `${processed.length} images`;
                 _ref(card, 'bar').style.width = '100%';
                 _ref(card, 'status').textContent = '…';
                 const existingImages = packId ? db.images.filter(img => img.packId === packId) : db.images;
@@ -5691,6 +5899,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             multiBattleMode = !multiBattleMode;
             const btn = document.getElementById('multiBattleToggle');
             if (btn) btn.classList.toggle('active', multiBattleMode);
+            const label = document.getElementById('multiBattleToggleLabel');
+            if (label) label.textContent = multiBattleMode ? '1v1' : 'Best of 4';
             renderBattle();
         }
 
@@ -5719,16 +5929,11 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const miniTags0 = (pair[0].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
             const miniTags1 = (pair[1].tags || []).map(t => `<span class="mini-tag">${t}</span>`).join('');
 
-            const tag0 = isVideoRecord(pair[0]) ? 'video' : 'img';
-            const tag1 = isVideoRecord(pair[1]) ? 'video' : 'img';
-            const vAttr0 = tag0 === 'video' ? ' muted loop playsinline autoplay' : '';
-            const vAttr1 = tag1 === 'video' ? ' muted loop playsinline autoplay' : '';
-
             container.innerHTML = `
                 <div class="battle-card" data-id="${pair[0].id}" onclick="selectWinner(${pair[0].id})">
                     <div class="battle-image-container">
-                        <${tag0} src="" alt="" class="battle-image-bg" id="battleBg0"${vAttr0}></${tag0}>
-                        <${tag0} src="" alt="Option 1" class="battle-image" id="battleImg0"${vAttr0}></${tag0}>
+                        <img src="" alt="" class="battle-image-bg" id="battleBg0">
+                        <img src="" alt="Option 1" class="battle-image" id="battleImg0">
                     </div>
                     <div class="battle-rating">
                         <svg class="star-icon" viewBox="0 0 24 24" fill="#bb86fc">
@@ -5740,8 +5945,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 </div>
                 <div class="battle-card" data-id="${pair[1].id}" onclick="selectWinner(${pair[1].id})">
                     <div class="battle-image-container">
-                        <${tag1} src="" alt="" class="battle-image-bg" id="battleBg1"${vAttr1}></${tag1}>
-                        <${tag1} src="" alt="Option 2" class="battle-image" id="battleImg1"${vAttr1}></${tag1}>
+                        <img src="" alt="" class="battle-image-bg" id="battleBg1">
+                        <img src="" alt="Option 2" class="battle-image" id="battleImg1">
                     </div>
                     <div class="battle-rating">
                         <svg class="star-icon" viewBox="0 0 24 24" fill="#bb86fc">
@@ -5763,10 +5968,10 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const el0 = document.getElementById('battleImg0');
             const bg1 = document.getElementById('battleBg1');
             const el1 = document.getElementById('battleImg1');
-            if (bg0 && data0) bg0.src = data0;
-            if (el0 && data0) el0.src = data0;
-            if (bg1 && data1) bg1.src = data1;
-            if (el1 && data1) el1.src = data1;
+            setMediaSrc(bg0, data0);
+            setMediaSrc(el0, data0);
+            setMediaSrc(bg1, data1);
+            setMediaSrc(el1, data1);
         }
 
         async function renderMultiBattle(container, emptyBattle) {
@@ -5780,10 +5985,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             container.className = 'multi-battle-grid';
 
             container.innerHTML = quad.map((img, i) => {
-                const tag = isVideoRecord(img) ? 'video' : 'img';
-                const vAttr = tag === 'video' ? ' muted loop playsinline autoplay' : '';
                 return `<div class="multi-battle-card" data-id="${img.id}" onclick="selectMultiWinner(${img.id})" title="${(img.tags||[]).join(', ')}">
-                    <${tag} src="" alt="Option ${i+1}" id="multiBattleImg${i}"${vAttr}></${tag}>
+                    <img src="" alt="Option ${i+1}" id="multiBattleImg${i}">
                     <div class="multi-rating">★ ${img.rating}</div>
                 </div>`;
             }).join('');
@@ -5791,7 +5994,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const dataArr = await Promise.all(quad.map(img => db.getImageData(img.id)));
             dataArr.forEach((data, i) => {
                 const el = document.getElementById(`multiBattleImg${i}`);
-                if (el && data) el.src = data;
+                if (el && data) setMediaSrc(el, data);
             });
         }
 
@@ -6347,7 +6550,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             for (const m of matches) {
                 const data = await db.getImageData(m.imageId);
                 const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} [data-image-id]`);
-                if (imgEl && data) imgEl.src = data;
+                if (imgEl && data) setMediaSrc(imgEl, data);
             }
 
             // Accept all high confidence
@@ -6568,7 +6771,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                          ondragover="event.preventDefault();this.classList.add('drag-over')"
                          ondragleave="this.classList.remove('drag-over')"
                          ondrop="tierDrop(event,'${tier.label}')">
-                        ${ids.map(id => { const meta = db.getImageById(id); const isV = isVideoRecord(meta); const tag = isV ? 'video' : 'img'; const vA = isV ? ' muted loop playsinline autoplay' : ''; return `<${tag} data-image-id="${id}" data-id="${id}" draggable="true"${vA} ondragstart="tierDragStart(event,${id},'${tier.label}')" ondragend="this.classList.remove('dragging')" alt="" src=""></${tag}>`; }).join('')}
+                        ${ids.map(id => `<img data-image-id="${id}" data-id="${id}" draggable="true" ondragstart="tierDragStart(event,${id},'${tier.label}')" ondragend="this.classList.remove('dragging')" alt="" src="">`).join('')}
                     </div>
                 </div>`;
             }).join('');
@@ -6576,7 +6779,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             // Load thumbnails
             for (const img of images) {
                 const data = await db.getImageData(img.id);
-                content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) el.src = data; });
+                content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) setMediaSrc(el, data); });
             }
         }
 
@@ -6649,22 +6852,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                     const data = imgMap[id];
                     if (!data) { x += IMG_SIZE + PAD; continue; }
                     const meta = db.getImageById(id);
-                    if (isVideoRecord(meta)) {
-                        // Draw video frame to canvas
-                        await new Promise(resolve => {
-                            const vid = document.createElement('video');
-                            vid.muted = true;
-                            vid.onloadeddata = () => { ctx.drawImage(vid, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
-                            vid.onerror = () => resolve();
-                            vid.src = data;
-                        });
-                    } else {
-                        await new Promise(resolve => {
-                            const im = new Image();
-                            im.onload = () => { ctx.drawImage(im, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
-                            im.src = data;
-                        });
-                    }
+                    await new Promise(resolve => {
+                        const im = new Image();
+                        im.onload = () => { ctx.drawImage(im, x, y + PAD, IMG_SIZE, IMG_SIZE); resolve(); };
+                        im.onerror = () => resolve();
+                        im.src = data;
+                    });
                     x += IMG_SIZE + PAD;
                 }
                 y += ROW_H + 4;
@@ -6824,6 +7017,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 try {
                     const image = JSON.parse(objStr);
                     if (!image.packId) image.packId = null;
+                    if (!image.dataSize && image.data) image.dataSize = image.data.length;
                     await db.storage.saveImage(image);
                     imageCount++;
                     if (imageCount % 20 === 0) {
@@ -7568,24 +7762,12 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             const counterEl = document.getElementById('imagePreviewCounter');
             const statsEl = document.getElementById('imagePreviewStats');
 
-            // Swap the element if type changed (img <-> video)
-            let imgEl = document.getElementById('imagePreviewImg');
-            const needsVideo = isVideoRecord(img);
-            const currentIsVideo = imgEl && imgEl.tagName === 'VIDEO';
-            if (needsVideo !== currentIsVideo) {
-                const newEl = needsVideo ? document.createElement('video') : document.createElement('img');
-                newEl.id = 'imagePreviewImg';
-                if (needsVideo) { newEl.muted = true; newEl.loop = true; newEl.playsInline = true; newEl.autoplay = true; }
-                newEl.alt = 'Preview';
-                if (imgEl) imgEl.replaceWith(newEl); else stageEl.appendChild(newEl);
-                imgEl = newEl;
-            }
+            const imgEl = document.getElementById('imagePreviewImg');
 
             // Load image data asynchronously
             db.getImageData(img.id).then(data => {
                 if (data) {
-                    if (!needsVideo) bgEl.style.backgroundImage = `url(${data})`;
-                    else bgEl.style.backgroundImage = '';
+                    bgEl.style.backgroundImage = `url(${data})`;
                     imgEl.src = data;
                 }
             });
@@ -7994,9 +8176,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
 
             const grid = document.getElementById('createPackImageGrid');
             grid.innerHTML = db.images.map(img => {
-                if (isVideoRecord(img)) {
-                    return `<video data-image-id="${img.id}" class="selectable-img" data-id="${img.id}" muted loop playsinline autoplay onclick="toggleCreatePackImage(this, ${img.id})" alt=""></video>`;
-                }
                 return `<img data-image-id="${img.id}" class="selectable-img" data-id="${img.id}" onclick="toggleCreatePackImage(this, ${img.id})" alt="">`;
             }).join('');
 
@@ -8057,13 +8236,8 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 try {
                     const result = await readMediaFile(file);
                     result.fileName = file.name;
-                    if (result.type !== 'video') {
-                        result.sha256 = await computeImageHash(result.dataUrl);
-                        result.phash = await computePerceptualHash(result.dataUrl);
-                    } else {
-                        result.sha256 = null;
-                        result.phash = null;
-                    }
+                    result.sha256 = await computeImageHash(result.dataUrl);
+                    result.phash = await computePerceptualHash(result.dataUrl);
                     processed.push(result);
                 } catch (err) {
                     console.error('Error uploading file to create pack:', err);
@@ -8087,8 +8261,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         const newImg = db.images[db.images.length - 1];
                         createPackSelectedIds.add(newImg.id);
 
-                        const el = newImg.type === 'video' ? document.createElement('video') : document.createElement('img');
-                        if (newImg.type === 'video') { el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true; }
+                        const el = document.createElement('img');
                         el.className = 'selectable-img selected';
                         el.dataset.id = newImg.id;
                         el.dataset.imageId = newImg.id;
@@ -8096,7 +8269,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                         el.onclick = function() { toggleCreatePackImage(this, newImg.id); };
                         grid.appendChild(el);
                         // Load data from cache
-                        db.getImageData(newImg.id).then(data => { if (data) el.src = data; });
+                        db.getImageData(newImg.id).then(data => { if (data) setMediaSrc(el, data); });
                     }
                 } catch (err) {
                     console.error('Error saving image to create pack:', err);
@@ -8140,7 +8313,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
             function showPreview(e) {
                 const img = e.target;
                 if (!img.classList.contains('selectable-img')) return;
-                if (img.tagName === 'VIDEO') return; // skip hover preview for videos
                 currentTarget = img;
                 clearTimeout(hoverTimer);
                 hoverTimer = setTimeout(() => {
@@ -8157,7 +8329,6 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 const vh = window.innerHeight;
                 let x = e.clientX + pad;
                 let y = e.clientY + pad;
-                // Estimate preview size (max 350x350)
                 const pw = 350, ph = 350;
                 if (x + pw > vw) x = e.clientX - pw - pad;
                 if (y + ph > vh) y = e.clientY - ph - pad;
@@ -8221,7 +8392,7 @@ window.__BUTTON_ICONS__ = {"addImages":"data:image/png;base64,iVBORw0KGgoAAAANSU
                 if (data) {
                     const el = stage.querySelector('[data-image-id]');
                     if (el) el.src = data;
-                    if (!isVideoRecord(img)) document.getElementById('slideshowBgBlur').style.backgroundImage = `url(${data})`;
+                    document.getElementById('slideshowBgBlur').style.backgroundImage = `url(${data})`;
                 }
             });
             document.getElementById('slideshowRating').textContent = img.rating;
