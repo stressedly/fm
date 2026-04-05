@@ -2985,7 +2985,7 @@
             box-sizing: border-box;
         }
         .gm-field select:focus, .gm-field input:focus { border-color: rgba(244, 143, 177, 0.6); }
-        .gm-field input[type="file"] { color: #b19cd9; font-size: 0.85em; font-family: inherit; cursor: pointer; }
+        .gm-field input[type="file"] { display: block; color: #b19cd9; font-size: 0.85em; font-family: inherit; cursor: pointer; }
         #gmBpmRow { width: 100%; }
         #gmBpmDetectMsg { color: #b19cd9; font-size: 0.78em; opacity: 0.8; min-height: 1.2em; margin-top: 4px; }
         #gmStartBtn {
@@ -3292,7 +3292,7 @@
                                 <option value="all">All</option>
                             </select>
                         </label>
-                        <input type="text" id="gallerySearch" placeholder="Search tags..." oninput="renderGallery()" style="min-width:120px;">
+                        <input type="text" id="gallerySearch" placeholder="Search tags..." oninput="renderGalleryDebounced()" style="min-width:120px;">
                     </div>
                     <div id="galleryCount" class="gallery-count"></div>
                     <div id="galleryGrid" class="gallery-grid"></div>
@@ -4241,7 +4241,7 @@
                     this.storageLimit = 500 * 1024 * 1024;
                     this.ready = false;
                     this._dataCache = new Map(); // LRU cache for image data
-                    this._dataCacheMax = 250;
+                    this._dataCacheMax = 1000;
                     this._imageMap = new Map(); // id → image meta for O(1) lookups
                 }
 
@@ -4916,16 +4916,36 @@
                 for (const entry of entries) {
                     if (entry.isIntersecting) {
                         const el = entry.target;
+                        _imageObserver.unobserve(el);
                         const id = Number(el.dataset.imageId);
                         if (id) {
                             db.getImageData(id).then(data => {
-                                if (data) setMediaSrc(el, data);
+                                if (!data) return;
+                                setMediaSrc(el, data);
+                                // el may have been replaced (img→video); find the live element
+                                const cur = el.isConnected ? el : document.querySelector(`[data-image-id="${id}"]`);
+                                if (cur) _imageUnloadObserver.observe(cur);
                             });
                         }
-                        _imageObserver.unobserve(el);
                     }
                 }
-            }, { rootMargin: '300px' });
+            }, { rootMargin: '600px' });
+
+            // Unload images that have scrolled far out of view to free memory.
+            // rootMargin 2000px means the element is still "intersecting" while within 2000px
+            // of the viewport; once it leaves that zone its src is cleared and it re-enters
+            // the load observer so it reloads when the user scrolls back.
+            const _imageUnloadObserver = new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (!entry.isIntersecting) {
+                        const el = entry.target;
+                        _imageUnloadObserver.unobserve(el);
+                        if (el.tagName === 'VIDEO') { el.src = ''; el.load(); }
+                        else if (el.src && el.src !== location.href) { el.src = ''; }
+                        _imageObserver.observe(el);
+                    }
+                }
+            }, { rootMargin: '2000px' });
 
             function observeLazyImages(container) {
                 const els = (container || document).querySelectorAll('[data-image-id]');
@@ -6993,12 +7013,12 @@
                 }
                 if (resultsEl) resultsEl.innerHTML = html;
 
-                // Load thumbnails
-                for (const m of matches) {
+                // Load thumbnails in parallel
+                await Promise.all(matches.map(async m => {
                     const data = await db.getImageData(m.imageId);
                     const imgEl = resultsEl.querySelector(`#${CSS.escape('fsMatch' + m.imageId)} [data-image-id]`);
                     if (imgEl && data) setMediaSrc(imgEl, data, m.imageId);
-                }
+                }));
 
                 // Accept all high confidence
                 const highMatches = matches.filter(m => m.confidence === 'high');
@@ -7085,6 +7105,11 @@
             // ========== GALLERY ==========
             let galleryImages = []; // sorted/filtered array for preview navigation
 
+            function _debounce(fn, ms) {
+                let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+            }
+            const renderGalleryDebounced = _debounce(renderGallery, 250);
+
             function populateGalleryPackFilter() {
                 const sel = document.getElementById('galleryFilterPack');
                 if (!sel) return;
@@ -7139,12 +7164,14 @@
                 }
 
                 galleryImages = images;
-                countEl.textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
 
                 if (images.length === 0) {
+                    countEl.textContent = '0 images';
                     grid.innerHTML = '<p style="color:#b19cd9;text-align:center;padding:40px;">No images found</p>';
                     return;
                 }
+
+                countEl.textContent = `${images.length} image${images.length !== 1 ? 's' : ''}`;
 
                 grid.innerHTML = images.map((img, idx) => {
                     const wr = img.battles ? Math.round((img.wins || 0) / img.battles * 100) : 0;
@@ -7189,7 +7216,7 @@
             let _tierDraggingId = null;
             let _tierDraggingSrcTier = null;
 
-            async function renderTierList() {
+            function renderTierList() {
                 const images = db.images.filter(img => !img.excluded);
                 const content = document.getElementById('tierListContent');
                 if (images.length === 0) {
@@ -7215,11 +7242,7 @@
                     </div>`;
                 }).join('');
 
-                // Load thumbnails
-                for (const img of images) {
-                    const data = await db.getImageData(img.id);
-                    content.querySelectorAll(`[data-id="${img.id}"]`).forEach(el => { if (data) setMediaSrc(el, data, img.id); });
-                }
+                observeLazyImages(content);
             }
 
             function tierDragStart(event, imgId, srcTier) {
