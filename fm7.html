@@ -2653,7 +2653,7 @@
                 transform: scale(1.03);
                 border-color: rgba(138,43,226,0.6);
             }
-            .gallery-card img {
+            .gallery-card img, .gallery-card video {
                 width: 100%;
                 aspect-ratio: 1;
                 object-fit: cover;
@@ -2709,7 +2709,7 @@
                 min-height: 80px;
                 align-content: flex-start;
             }
-            .tier-images img {
+            .tier-images img, .tier-images video {
                 width: 72px; height: 72px;
                 object-fit: cover;
                 border-radius: 6px;
@@ -2717,8 +2717,8 @@
                 transition: transform 0.15s;
                 border: 2px solid transparent;
             }
-            .tier-images img:hover { transform: scale(1.08); border-color: #bb86fc; }
-            .tier-images img.dragging { opacity: 0.4; cursor: grabbing; }
+            .tier-images img:hover, .tier-images video:hover { transform: scale(1.08); border-color: #bb86fc; }
+            .tier-images img.dragging, .tier-images video.dragging { opacity: 0.4; cursor: grabbing; }
             .tier-images.drag-over { background: rgba(138,43,226,0.2); }
             .tier-export-btn {
                 background: rgba(138,43,226,0.15);
@@ -7263,7 +7263,7 @@
                 if (!tierData[destTier].includes(_tierDraggingId)) tierData[destTier].push(_tierDraggingId);
 
                 // Move DOM element
-                const img = document.querySelector(`.tier-images img[data-id="${_tierDraggingId}"]`);
+                const img = document.querySelector(`.tier-images [data-id="${_tierDraggingId}"]`);
                 const destZone = document.querySelector(`.tier-images[data-tier="${destTier}"]`);
                 if (img && destZone) destZone.appendChild(img);
                 _tierDraggingId = null;
@@ -9331,17 +9331,27 @@
                     db.getImageData(id).then(data => {
                         if (!data) return;
                         const isVideo = data.startsWith('data:video/');
-                        // Always get a fresh element reference — setMediaSrc may swap img→video
-                        const el = document.getElementById('gmImg');
+                        let el = document.getElementById('gmImg');
                         if (!el) return;
+
+                        // setMediaSrc only handles img→video, not video→img.
+                        // If the element is a video but this media is an image, swap it back.
+                        if (!isVideo && el.tagName === 'VIDEO') {
+                            const img = document.createElement('img');
+                            img.id = 'gmImg';
+                            img.alt = '';
+                            img.className = el.className;
+                            el.parentNode.replaceChild(img, el);
+                            el = img;
+                        }
+
                         el.style.opacity = '0';
                         if (!isVideo) {
-                            // Set onload BEFORE src to avoid missing a sync cache-hit load
                             el.onload = () => { el.style.transition = 'opacity 0.15s'; el.style.opacity = '1'; };
                         }
                         setMediaSrc(el, data);
                         if (isVideo) {
-                            // setMediaSrc replaced the element; grab the new one
+                            // setMediaSrc replaced the img with a video; grab the new element
                             const newEl = document.getElementById('gmImg');
                             if (newEl) {
                                 newEl.style.transition = 'opacity 0.15s';
