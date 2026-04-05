@@ -2986,7 +2986,7 @@
         }
         .gm-field select:focus, .gm-field input:focus { border-color: rgba(244, 143, 177, 0.6); }
         .gm-field input[type="file"] { color: #b19cd9; font-size: 0.85em; font-family: inherit; cursor: pointer; }
-        #gmBpmRow { width: 100%; display: none; }
+        #gmBpmRow { width: 100%; }
         #gmBpmDetectMsg { color: #b19cd9; font-size: 0.78em; opacity: 0.8; min-height: 1.2em; margin-top: 4px; }
         #gmStartBtn {
             background: linear-gradient(135deg, #8b5cf6, #ec4899);
@@ -3370,7 +3370,7 @@
                         <label>Music (optional)</label>
                         <input type="file" id="gmMusicFile" accept="audio/*">
                     </div>
-                    <div id="gmBpmRow">
+                    <div id="gmBpmRow" class="hidden">
                         <div class="gm-field">
                             <label>BPM</label>
                             <input type="number" id="gmBpmInput" value="120" min="20" max="220">
@@ -9107,11 +9107,11 @@
                     newInput.addEventListener('change', async e => {
                         const file = e.target.files[0];
                         if (!file) {
-                            document.getElementById('gmBpmRow').style.display = 'none';
+                            document.getElementById('gmBpmRow').classList.add('hidden');
                             document.getElementById('gmBpmDetectMsg').textContent = '';
                             return;
                         }
-                        document.getElementById('gmBpmRow').style.display = 'block';
+                        document.getElementById('gmBpmRow').classList.remove('hidden');
                         await gmDetectBPM(file);
                     });
                 },
@@ -9170,6 +9170,7 @@
                     }, 1000);
 
                     this.nextSegment();
+                    this.prefetch(6); // warm cache for first several images
                     this.loadImage();
                 },
 
@@ -9291,18 +9292,39 @@
                         }
                     }
                     this.loadImage();
+                    this.prefetch();
+                },
+
+                // Fire-and-forget: warm db LRU cache for next N images so they load instantly
+                prefetch(n = 4) {
+                    for (let i = 1; i <= n; i++) {
+                        const idx = (this.queueIdx + i) % this.queue.length;
+                        db.getImageData(this.queue[idx]); // returns Promise, result cached in db._dataCache
+                    }
                 },
 
                 loadImage() {
-                    const img = document.getElementById('gmImg');
-                    img.style.opacity = '0';
                     const id = this.queue[this.queueIdx];
                     db.getImageData(id).then(data => {
                         if (!data) return;
-                        setMediaSrc(img, data);
-                        img.onload = () => { img.style.transition = 'opacity 0.15s'; img.style.opacity = '1'; };
-                        // video elements won't fire onload — fade in via timeout
-                        if (data.startsWith('data:video/')) setTimeout(() => { img.style.opacity = '1'; }, 80);
+                        const isVideo = data.startsWith('data:video/');
+                        // Always get a fresh element reference — setMediaSrc may swap img→video
+                        const el = document.getElementById('gmImg');
+                        if (!el) return;
+                        el.style.opacity = '0';
+                        if (!isVideo) {
+                            // Set onload BEFORE src to avoid missing a sync cache-hit load
+                            el.onload = () => { el.style.transition = 'opacity 0.15s'; el.style.opacity = '1'; };
+                        }
+                        setMediaSrc(el, data);
+                        if (isVideo) {
+                            // setMediaSrc replaced the element; grab the new one
+                            const newEl = document.getElementById('gmImg');
+                            if (newEl) {
+                                newEl.style.transition = 'opacity 0.15s';
+                                setTimeout(() => { const e = document.getElementById('gmImg'); if (e) e.style.opacity = '1'; }, 200);
+                            }
+                        }
                     });
                 },
 
