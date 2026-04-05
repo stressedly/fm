@@ -2287,21 +2287,36 @@
                 border-color: rgba(255,107,157,0.3);
             }
             .tagfare-btn-delete:hover { background: rgba(255,107,157,0.25); }
+            .tagfare-btn-undo {
+                background: rgba(255,183,77,0.1);
+                color: #ffcc80;
+                border-color: rgba(255,183,77,0.3);
+            }
+            .tagfare-btn-undo:hover { background: rgba(255,183,77,0.2); }
             .tagfare-ac {
                 display: none;
-                position: fixed;
-                min-width: 220px;
+                width: 100%;
+                max-width: 360px;
                 max-height: 220px;
                 overflow-y: auto;
                 background: rgba(25,22,40,0.98);
                 border: 1px solid rgba(138,43,226,0.45);
                 border-radius: 10px;
-                z-index: 5000;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+                margin-top: 4px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.4);
             }
             .tagfare-ac.active { display: block; }
             .tagfare-ac::-webkit-scrollbar { width: 4px; }
             .tagfare-ac::-webkit-scrollbar-thumb { background: rgba(138,43,226,0.4); border-radius: 4px; }
+            .tagfare-ac-applied {
+                opacity: 0.45;
+                cursor: default;
+                pointer-events: none;
+            }
+            .tagfare-ac-applied .ac-check {
+                color: #81c784;
+                font-size: 0.85em;
+            }
 
             /* Preview tag editing */
             .preview-tag-editable {
@@ -6140,6 +6155,7 @@
             let multiBattleMode = false;
 
             let tagfareMode = false;
+            let lastTagfareAction = null; // { imageId, tag }
 
             function toggleTagfare() {
                 tagfareMode = !tagfareMode;
@@ -6299,6 +6315,7 @@
                             <div id="tagfareAc" class="tagfare-ac"></div>
                             <div class="tagfare-actions">
                                 <button class="tagfare-btn tagfare-btn-skip" onclick="tagfareSkip()">Skip</button>
+                                ${lastTagfareAction ? `<button class="tagfare-btn tagfare-btn-undo" onclick="tagfareUndo()">↩ Undo "${lastTagfareAction.tag}"</button>` : ''}
                                 <button class="tagfare-btn tagfare-btn-delete" onclick="tagfareDelete(${img.id})">Delete image</button>
                             </div>
                         </div>
@@ -6324,6 +6341,14 @@
                 renderBattle();
             }
 
+            async function tagfareUndo() {
+                if (!lastTagfareAction) return;
+                const { imageId, tag } = lastTagfareAction;
+                lastTagfareAction = null;
+                await removeTagFromImage(imageId, tag);
+                renderBattle();
+            }
+
             function tagfareSkip() {
                 renderBattle();
             }
@@ -6339,6 +6364,7 @@
             async function tagfareSubmitTag(imageId, tag) {
                 tag = tag.trim().toLowerCase();
                 if (!tag) return;
+                lastTagfareAction = { imageId, tag };
                 await addTagToImage(imageId, tag);
                 renderBattle();
             }
@@ -6355,32 +6381,23 @@
                     return img ? (img.tags || []) : [];
                 }
 
-                function positionAc() {
-                    const rect = input.getBoundingClientRect();
-                    const spaceBelow = window.innerHeight - rect.bottom;
-                    if (spaceBelow < 230) {
-                        acEl.style.top = '';
-                        acEl.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-                    } else {
-                        acEl.style.bottom = '';
-                        acEl.style.top = (rect.bottom + 4) + 'px';
-                    }
-                    acEl.style.left = rect.left + 'px';
-                    acEl.style.minWidth = Math.max(220, rect.width) + 'px';
-                }
-
                 function renderAc() {
                     const q = input.value.trim().toLowerCase();
                     const imgTags = getImgTags();
                     const all = getTagsByPopularity();
                     const matches = (q
-                        ? all.filter(t => t.tag.toLowerCase().includes(q) && !imgTags.includes(t.tag))
-                        : all.filter(t => !imgTags.includes(t.tag))
-                    ).slice(0, 8);
+                        ? all.filter(t => t.tag.toLowerCase().includes(q))
+                        : all
+                    ).slice(0, 30);
 
                     let html = '';
                     for (const t of matches) {
-                        html += `<div class="inline-tag-ac-item" data-tag="${t.tag.replace(/"/g, '&quot;')}">${t.tag}<span class="ac-count">${t.count}</span></div>`;
+                        const applied = imgTags.includes(t.tag);
+                        if (applied) {
+                            html += `<div class="inline-tag-ac-item tagfare-ac-applied">${t.tag}<span class="ac-check">✓</span></div>`;
+                        } else {
+                            html += `<div class="inline-tag-ac-item" data-tag="${t.tag.replace(/"/g, '&quot;')}">${t.tag}<span class="ac-count">${t.count}</span></div>`;
+                        }
                     }
                     if (q && !all.some(t => t.tag.toLowerCase() === q) && !imgTags.includes(q)) {
                         html += `<div class="inline-tag-ac-item" data-tag="${q.replace(/"/g, '&quot;')}">${q} <span class="ac-new-badge">new</span></div>`;
@@ -6388,10 +6405,9 @@
                     if (!html) {
                         html = q
                             ? '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No matches</div>'
-                            : '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">No more tags</div>';
+                            : '<div class="inline-tag-ac-item" style="opacity:0.5;cursor:default;">Start typing a tag…</div>';
                     }
                     acEl.innerHTML = html;
-                    positionAc();
                     acEl.classList.add('active');
                     acIdx = -1;
                     acEl.querySelectorAll('.inline-tag-ac-item[data-tag]').forEach(el => {
