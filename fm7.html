@@ -7744,9 +7744,7 @@
                         }
                         return { slots: list, gpu: false };
                     })();
-                    runners.set(model, p);
-                    p.catch(() => runners.delete(model));
-                    return p.then(r => ({
+                    const wrapped = p.then(r => ({
                         n: r.slots.length, gpu: r.gpu,
                         run: async feeds => {
                             const sl = r.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
@@ -7754,6 +7752,9 @@
                             try { return await sl.eng.call('run', [model, feeds]); } finally { sl.busy--; }
                         },
                     }));
+                    runners.set(model, wrapped);
+                    wrapped.catch(() => { if (runners.get(model) === wrapped) runners.delete(model); });
+                    return wrapped;
                 }
                 async function release(model) {
                     runners.delete(model);
@@ -8534,8 +8535,9 @@
                 _asEl('aiStudioModal').dataset.tool = tool;
                 _asStopPreview();
                 const t = AS_TOOLS[tool];
-                if (t.kind && _as.src && _as.src.kind !== t.kind) _as.src = null;
+                if (_as.src && _as.src.kind !== (t.kind || 'image')) _as.src = null;
                 _as.result = null;
+                _asEl('asProg').classList.add('hidden');
                 _asEl('asRun').textContent = t.run || '';
                 _asRenderControls();
                 _asRenderSource();
